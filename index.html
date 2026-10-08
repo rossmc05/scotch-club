@@ -3,231 +3,248 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Scotch Club</title>
-<meta name="description" content="The Scotch Club tasting map and bottle log.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥃</text></svg>">
+<meta name="theme-color" content="#13241c">
+<title>The Scotch Club</title>
+<meta name="description" content="Every bottle the Scotch Club has opened, mapped by distillery.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='10' fill='%2313241c'/><text x='32' y='44' text-anchor='middle' font-family='Georgia,serif' font-size='34' fill='%23c9a46a'>S</text></svg>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Libre+Franklin:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#f5efe6; --surface:#fffdf9; --surface-2:#f9f4ec; --ink:#2a2118; --muted:#74685a;
-  --line:#e4d9c8; --accent:#93561b; --accent-hover:#7a4613; --accent-ink:#fff;
-  --danger:#b3261e; --focus:#2f6f9a; --shadow:0 1px 2px rgba(60,40,20,.06),0 6px 18px rgba(60,40,20,.07);
-  --radius:14px;
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#16120e; --surface:#211b15; --surface-2:#2a231c; --ink:#f2e8db; --muted:#b5a691;
-    --line:#3b3128; --accent:#e0a057; --accent-hover:#f0b26b; --accent-ink:#1b1209;
-    --danger:#ff8a80; --focus:#8cc4ea; --shadow:none;
-  }
+  color-scheme: dark;
+  --base:#13241c;      /* bottle-green glass */
+  --surface:#182c23;
+  --raise:#1f362b;
+  --line:#2c463a;
+  --ink:#ece3cf;       /* parchment */
+  --muted:#9fb3a6;     /* sage */
+  --brass:#c9a46a;
+  --brass-hi:#dcbb85;
+  --danger:#e8907d;
+  --focus:#f0d9a0;
+  --serif:"Libre Caslon Text", Georgia, serif;
+  --display:"Libre Caslon Display", "Libre Caslon Text", Georgia, serif;
+  --sans:"Libre Franklin", "Helvetica Neue", Arial, sans-serif;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
-h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:700;margin:0;letter-spacing:-.01em}
+body{background:var(--base);color:var(--ink);font:400 15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:400}
 button,input,select{font:inherit;color:inherit}
-:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:6px}
-.skip{position:absolute;left:-999px;top:8px;background:var(--surface);padding:8px 12px;border-radius:8px;z-index:9999}
+a{color:var(--brass)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.skip{position:absolute;left:-999px;top:8px;background:var(--surface);padding:8px 12px;z-index:9999;color:var(--ink)}
 .skip:focus{left:8px}
-.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
-/* Header */
-header{padding:28px 0 18px}
-.head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.brand h1{font-size:clamp(28px,4vw,40px);line-height:1.05}
-.brand p{margin:4px 0 0;color:var(--muted)}
-.head-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.status{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
-.dot{width:8px;height:8px;border-radius:50%;background:#aaa}
-.status.live .dot{background:#3a9d5d;box-shadow:0 0 0 3px rgba(58,157,93,.18)}
-.status.err .dot{background:var(--danger)}
-.btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 16px;cursor:pointer;font-weight:500;min-height:42px}
+/* ---------- Hero map ---------- */
+.hero{position:relative;height:clamp(440px,68vh,680px);background:var(--base);border-bottom:1px solid var(--line)}
+#map{position:absolute;inset:0;background:#13241c;z-index:0}
+#map .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) saturate(.2) brightness(.9) contrast(.9);opacity:.62}
+.hero-tools{position:absolute;top:18px;right:18px;z-index:500;display:flex;gap:10px;align-items:center}
+.toggle{display:inline-flex;background:rgba(19,36,28,.88);border:1px solid var(--line);border-radius:4px;backdrop-filter:blur(6px)}
+.toggle button{border:0;background:transparent;padding:8px 14px;cursor:pointer;font-size:13px;color:var(--muted);min-height:40px}
+.toggle button[aria-pressed="true"]{color:var(--ink);box-shadow:inset 0 -2px 0 var(--brass)}
+
+.cartouche{position:absolute;left:28px;bottom:28px;z-index:500;width:min(470px,calc(100% - 56px));
+  background:rgba(19,36,28,.9);backdrop-filter:blur(8px);border:1px solid rgba(201,164,106,.45);
+  padding:26px 28px 22px;border-radius:2px;outline:1px solid rgba(201,164,106,.18);outline-offset:-7px}
+.cartouche h1{font-family:var(--display);font-size:clamp(40px,5vw,60px);line-height:.98;letter-spacing:-.01em;color:var(--ink)}
+.members{font-family:var(--serif);font-style:italic;color:var(--muted);margin:8px 0 14px;font-size:16px}
+.tally{font-family:var(--serif);font-size:18px;line-height:1.45;margin:0 0 16px;max-width:36ch}
+.tally b{font-weight:700;color:var(--brass)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px}
+.key{display:inline-flex;align-items:center;gap:7px;border:0;background:none;padding:3px 0;cursor:pointer;font-size:13px;color:var(--muted)}
+.key:hover,.key[aria-pressed="true"]{color:var(--ink)}
+.key[aria-pressed="true"]{text-decoration:underline;text-decoration-color:var(--brass);text-underline-offset:4px}
+.sw{width:9px;height:9px;border-radius:50%;flex:none}
+.status{display:block;margin-top:14px;font-size:12px;color:var(--muted)}
+.status::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#7d8a82;margin-right:7px;vertical-align:1px}
+.status.live::before{background:#8fc79a}
+.status.err{color:var(--danger)}
+.status.err::before{background:var(--danger)}
+
+/* ---------- Buttons ---------- */
+.btn{border:1px solid var(--line);background:transparent;border-radius:4px;padding:9px 16px;cursor:pointer;font-weight:500;font-size:14px;min-height:40px;color:var(--ink)}
 .btn:hover{border-color:var(--muted)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
-.btn.primary:hover{background:var(--accent-hover)}
-.btn.danger{color:var(--danger);border-color:transparent;background:transparent}
-.btn.small{padding:5px 12px;min-height:34px;font-size:13px}
+.btn.primary{background:var(--brass);border-color:var(--brass);color:#1a140a;font-weight:600}
+.btn.primary:hover{background:var(--brass-hi);border-color:var(--brass-hi)}
+.btn.danger{border-color:transparent;color:var(--danger);padding-left:0}
+.btn:disabled{opacity:.6;cursor:wait}
 
-/* Cards / grid */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
-.stat{padding:14px 16px}
-.stat .n{font-family:Fraunces,Georgia,serif;font-size:30px;font-weight:700;line-height:1.1}
-.stat .l{color:var(--muted);font-size:13px}
-.grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
-.panel{padding:16px}
-.panel h2{font-size:19px;margin-bottom:10px}
-.panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
-.panel-head h2{margin:0}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
-.seg button{border:0;background:transparent;padding:5px 12px;cursor:pointer;font-size:13px;min-height:34px}
-.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
-#map{height:460px;border-radius:10px;border:1px solid var(--line);z-index:0}
-.legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:3px 10px;font-size:13px;cursor:pointer}
-.chip[aria-pressed="true"]{border-color:var(--ink);font-weight:600}
-.sw{width:10px;height:10px;border-radius:50%;flex:none}
-.side{display:flex;flex-direction:column;gap:16px}
-.bars{display:flex;flex-direction:column;gap:7px}
-.bar{display:grid;grid-template-columns:92px 1fr 28px;align-items:center;gap:8px;font-size:13px}
-.bar .track,.bar .fill{display:block}
-.bar .track{height:12px;background:var(--surface-2);border-radius:999px;overflow:hidden}
-.bar .fill{height:100%;border-radius:999px;background:var(--accent)}
-.bar .v{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
-.latest{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
-.latest li{display:flex;justify-content:space-between;gap:8px;font-size:13px;border-bottom:1px dashed var(--line);padding-bottom:6px}
-.latest li:last-child{border:0}
-.latest .w{font-weight:600}
-.latest .m{color:var(--muted);white-space:nowrap}
-.empty{color:var(--muted);font-size:13px}
+/* ---------- Body layout ---------- */
+.wrap{max-width:1200px;margin:0 auto;padding:0 28px}
+.body{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:56px;padding:48px 0 32px}
+h2{font-family:var(--serif);font-size:26px;line-height:1.2}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.linkbtn{border:0;background:none;color:var(--brass);cursor:pointer;font-size:13px;padding:6px 0;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(201,164,106,.4)}
+.linkbtn:hover{color:var(--brass-hi)}
 
-/* List */
-.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-.toolbar input,.toolbar select,.field input,.field select{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 10px;min-height:42px}
-.toolbar input[type=search]{flex:1 1 220px}
-.count{color:var(--muted);font-size:13px;margin-left:auto}
-table{width:100%;border-collapse:collapse}
-th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;padding:8px;border-bottom:1px solid var(--line)}
-td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
-tbody tr{cursor:pointer}
-tbody tr:hover{background:var(--surface-2)}
-.wh{display:flex;align-items:center;gap:10px;font-weight:600}
-.thumb{width:34px;height:34px;object-fit:contain;border-radius:6px;background:#fff;flex:none}
-.thumb.ph{display:grid;place-items:center;background:var(--surface-2);font-size:16px}
-.rg{display:inline-flex;align-items:center;gap:6px}
-.edit{border:0;background:transparent;color:var(--accent);cursor:pointer;font-weight:600;padding:6px}
-.muted{color:var(--muted)}
+/* Ledger */
+.filters{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;margin-bottom:6px}
+.filters input,.filters select,.field input,.field select{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:8px 10px;min-height:42px;color:var(--ink)}
+.filters input::placeholder,.field input::placeholder{color:#7e9387}
+.count{font-size:13px;color:var(--muted);margin:10px 0 4px}
+.ledger{list-style:none;margin:0;padding:0}
+.entry{display:grid;grid-template-columns:44px minmax(0,1fr) 130px 70px 100px;gap:14px;align-items:center;padding:12px 6px;border-top:1px solid var(--line);cursor:pointer}
+.entry:last-child{border-bottom:1px solid var(--line)}
+.entry:hover{background:var(--surface)}
+.entry:focus-visible{outline-offset:-2px}
+.bottle{min-width:0}
+.bottle .n{font-weight:500;font-size:15px;display:block;overflow:hidden;text-overflow:ellipsis}
+.bottle .d{color:var(--muted);font-size:13px;display:block}
+.thumb{width:44px;height:44px;border-radius:3px;object-fit:contain;background:#e9e1cd;display:block}
+.mono{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-family:var(--serif);font-size:19px;color:var(--ink);background:var(--raise);border:1.5px solid}
+.rg{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}
+.who{font-size:13px}
+.when{font-size:13px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.none{color:var(--muted);padding:20px 0}
 
-/* Dialog */
-dialog{border:0;border-radius:18px;padding:0;width:min(560px,calc(100vw - 24px));background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.3)}
-dialog::backdrop{background:rgba(20,14,8,.5)}
-.dlg{padding:20px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 40px);overflow:auto}
-.dlg h2{font-size:22px}
-.field{display:flex;flex-direction:column;gap:4px}
-.field label{font-size:13px;font-weight:600}
+/* Sidebar */
+aside{display:flex;flex-direction:column;gap:40px}
+aside h2{font-size:21px;margin-bottom:14px}
+.rows{display:flex;flex-direction:column;gap:11px}
+.row{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:14px}
+.row .v{font-family:var(--serif);color:var(--ink)}
+.row .track{grid-column:1/-1;height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+.row .fill{display:block;height:100%;background:var(--brass)}
+.recent{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+.recent .n{display:block;font-weight:500}
+.recent .d{display:block;font-size:13px;color:var(--muted)}
+.quiet{color:var(--muted);font-size:14px;font-family:var(--serif);font-style:italic}
+
+footer{border-top:1px solid var(--line);color:var(--muted);font-size:12px;padding:20px 0 40px}
+
+/* ---------- Leaflet ---------- */
+.leaflet-container{font-family:var(--sans)}
+.leaflet-bar a,.leaflet-bar a:hover{background:var(--surface);color:var(--ink);border-bottom-color:var(--line)}
+.leaflet-bar{border:1px solid var(--line)!important;box-shadow:none!important}
+.leaflet-control-attribution{background:rgba(19,36,28,.8)!important;color:var(--muted)!important}
+.leaflet-control-attribution a{color:var(--muted)!important}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.45);border-radius:4px}
+.leaflet-popup-content{margin:14px 16px;font-size:13px;line-height:1.5}
+.leaflet-container a.leaflet-popup-close-button{color:var(--muted)}
+.leaflet-tooltip{background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:none}
+.leaflet-tooltip-top:before{border-top-color:var(--line)}
+.pop h3{font-family:var(--serif);font-size:18px;margin:0}
+.pop .sub{color:var(--muted);margin:2px 0 8px}
+.pop ul{margin:0;padding:0;list-style:none}
+.pop li{padding:3px 0;border-top:1px solid var(--line)}
+.pop li span{color:var(--muted)}
+
+/* ---------- Dialog ---------- */
+dialog{border:1px solid var(--line);border-radius:6px;padding:0;width:min(560px,calc(100vw - 24px));background:var(--base);color:var(--ink);box-shadow:0 30px 80px rgba(0,0,0,.6)}
+dialog::backdrop{background:rgba(5,10,8,.7)}
+.dlg{padding:26px;display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 40px);overflow:auto}
+.dlg h2{font-size:28px;margin-bottom:4px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:13px;color:var(--muted)}
 .field .hint{font-size:12px;color:var(--muted)}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-fieldset{border:1px dashed var(--line);border-radius:12px;padding:12px;margin:0;display:flex;flex-direction:column;gap:10px}
-legend{font-size:13px;font-weight:600;padding:0 6px}
-#pickMap{height:220px;border-radius:10px;border:1px solid var(--line)}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+fieldset{border:1px solid var(--line);border-radius:4px;padding:14px;margin:0;display:flex;flex-direction:column;gap:12px;background:var(--surface)}
+legend{font-family:var(--serif);font-size:16px;padding:0 6px}
+#pickMap{height:220px;border:1px solid var(--line);border-radius:3px;background:#13241c}
+#pickMap .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) saturate(.2) brightness(.9) contrast(.9);opacity:.62}
 .find{display:flex;gap:8px}
-.find input{flex:1}
-.dlg-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:4px}
-.dlg-actions .spacer{flex:1}
+.find input{flex:1;min-width:0}
+.actions{display:flex;gap:8px;align-items:center;margin-top:6px}
+.actions .spacer{flex:1}
 .err-msg{color:var(--danger);font-size:13px;min-height:1em}
 
-.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:2000;max-width:calc(100vw - 32px)}
-.toast.show{opacity:1}
-footer{color:var(--muted);font-size:12px;padding:24px 0 40px;text-align:center}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,8px);background:var(--ink);color:var(--base);padding:10px 18px;border-radius:4px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:2000;max-width:calc(100vw - 32px)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
 
-/* Leaflet popup theming */
-.leaflet-popup-content{margin:12px 14px;font:13px/1.45 Inter,system-ui,sans-serif}
-.pop h3{font-size:15px;margin:0 0 2px}
-.pop .sub{color:#74685a;margin-bottom:6px}
-.pop ul{margin:0;padding-left:16px}
-
-@media (max-width:900px){
-  .grid{grid-template-columns:1fr}
-  .stats{grid-template-columns:repeat(2,1fr)}
-  #map{height:380px}
+/* ---------- Responsive ---------- */
+@media (max-width:960px){
+  .body{grid-template-columns:1fr;gap:44px}
+  aside{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:32px}
 }
-@media (max-width:640px){
-  .row2{grid-template-columns:1fr}
-  thead{display:none}
-  table,tbody,tr,td{display:block;width:100%}
-  tr{border-bottom:1px solid var(--line);padding:8px 0}
-  td{border:0;padding:2px 4px}
-  td.c-host,td.c-date,td.c-region{display:inline-block;width:auto;color:var(--muted);font-size:13px;margin-right:10px}
-  td.c-dist{color:var(--muted);font-size:13px}
-  td.c-act{display:none}
-  .count{margin-left:0;width:100%}
+@media (max-width:700px){
+  .wrap{padding:0 16px}
+  .hero{height:auto;border-bottom:0}
+  #map{position:relative;height:58vh;min-height:340px}
+  .hero-tools{top:12px;right:12px}
+  .cartouche{position:relative;left:auto;bottom:auto;width:auto;margin:-28px 16px 0;padding:22px 20px 18px;background:var(--base)}
+  .filters{grid-template-columns:1fr 1fr}
+  .filters input{grid-column:1/-1}
+  .entry{grid-template-columns:44px minmax(0,1fr) auto;gap:4px 12px;padding:12px 2px}
+  .entry .thumbcell{grid-row:1/3}
+  .entry .rg{grid-column:2;grid-row:2}
+  .entry .who{grid-column:3;grid-row:1;text-align:right}
+  .entry .when{grid-column:3;grid-row:2}
+  .bottle .d{display:none}
+  .pair{grid-template-columns:1fr}
 }
 </style>
 </head>
 <body>
-<a class="skip" href="#list">Skip to bottle list</a>
-<header>
-  <div class="wrap head">
-    <div class="brand">
-      <h1>🥃 Scotch Club</h1>
-      <p>Andrew · Matt · Pat · Ross — every bottle we've opened</p>
+<a class="skip" href="#ledger">Skip to the bottle list</a>
+
+<header class="hero">
+  <div id="map" role="region" aria-label="Map of distilleries the club has tasted"></div>
+  <div class="hero-tools">
+    <div class="toggle" role="group" aria-label="Map view">
+      <button type="button" id="viewScot" aria-pressed="true">Scotland</button>
+      <button type="button" id="viewWorld" aria-pressed="false">World</button>
     </div>
-    <div class="head-actions">
-      <span id="status" class="status" role="status"><span class="dot"></span><span id="statusText">Connecting…</span></span>
-      <button id="addBtn" class="btn primary" type="button">+ Add bottle</button>
-    </div>
+    <button id="addBtn" class="btn primary" type="button">Add a bottle</button>
+  </div>
+  <div class="cartouche">
+    <h1>The Scotch Club</h1>
+    <p class="members">Andrew, Matt, Pat and Ross</p>
+    <p class="tally" id="tally">Opening the cellar book…</p>
+    <div class="legend" id="legend" role="group" aria-label="Show one region"></div>
+    <span id="status" class="status" role="status">Connecting</span>
   </div>
 </header>
 
-<main class="wrap">
-  <section class="stats" aria-label="Club totals">
-    <div class="card stat"><div class="n" id="sBottles">–</div><div class="l">Bottles tasted</div></div>
-    <div class="card stat"><div class="n" id="sDist">–</div><div class="l">Distilleries</div></div>
-    <div class="card stat"><div class="n" id="sRegions">–</div><div class="l">Regions</div></div>
-    <div class="card stat"><div class="n" id="sCountries">–</div><div class="l">Countries</div></div>
-  </section>
-
-  <section class="grid">
-    <div class="card panel">
-      <div class="panel-head">
-        <h2>Distillery map</h2>
-        <div class="seg" role="group" aria-label="Map view">
-          <button type="button" id="viewScot" aria-pressed="true">Scotland</button>
-          <button type="button" id="viewWorld" aria-pressed="false">World</button>
-        </div>
-      </div>
-      <div id="map" role="region" aria-label="Map of distilleries tasted"></div>
-      <div class="legend" id="legend" aria-label="Filter by region"></div>
+<main class="wrap body">
+  <section id="ledger" aria-labelledby="ledgerTitle">
+    <div class="section-head">
+      <h2 id="ledgerTitle">The ledger</h2>
+      <button type="button" class="linkbtn" id="csvBtn">Download as CSV</button>
     </div>
-    <div class="side">
-      <div class="card panel">
-        <h2>Bottles by member</h2>
-        <div class="bars" id="byHost"></div>
-      </div>
-      <div class="card panel">
-        <h2>Bottles by region</h2>
-        <div class="bars" id="byRegion"></div>
-      </div>
-      <div class="card panel">
-        <h2>Latest tastings</h2>
-        <ul class="latest" id="latest"></ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="card panel" id="list" aria-labelledby="listTitle">
-    <div class="panel-head">
-      <h2 id="listTitle">The bottle log</h2>
-      <button type="button" class="btn small" id="csvBtn">Download CSV</button>
-    </div>
-    <div class="toolbar">
+    <div class="filters">
       <input type="search" id="q" placeholder="Search bottles or distilleries" aria-label="Search bottles or distilleries">
-      <select id="fHost" aria-label="Filter by member"><option value="">All members</option></select>
-      <select id="fRegion" aria-label="Filter by region"><option value="">All regions</option></select>
+      <select id="fHost" aria-label="Brought by"><option value="">Everyone</option></select>
+      <select id="fRegion" aria-label="Region"><option value="">All regions</option></select>
       <select id="sort" aria-label="Sort by">
-        <option value="date">Newest tasted</option>
-        <option value="name">Bottle A–Z</option>
-        <option value="dist">Distillery A–Z</option>
+        <option value="date">Most recent</option>
+        <option value="name">Bottle A to Z</option>
+        <option value="dist">Distillery A to Z</option>
         <option value="host">Member</option>
         <option value="region">Region</option>
       </select>
-      <span class="count" id="count" aria-live="polite"></span>
     </div>
-    <table>
-      <thead><tr><th>Bottle</th><th>Distillery</th><th>Region</th><th>Brought by</th><th>Tasted</th><th><span class="skip">Edit</span></th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
-    <p class="empty" id="noRows" hidden>No bottles match those filters.</p>
+    <p class="count" id="count" aria-live="polite"></p>
+    <ul class="ledger" id="rows"></ul>
+    <p class="none" id="noRows" hidden>No bottles match. Clear the search or filters to see the full ledger.</p>
   </section>
+
+  <aside>
+    <section aria-labelledby="hostTitle">
+      <h2 id="hostTitle">Who's poured what</h2>
+      <div class="rows" id="byHost"></div>
+    </section>
+    <section aria-labelledby="regionTitle">
+      <h2 id="regionTitle">By region</h2>
+      <div class="rows" id="byRegion"></div>
+    </section>
+    <section aria-labelledby="recentTitle">
+      <h2 id="recentTitle">Recently poured</h2>
+      <ul class="recent" id="latest"></ul>
+    </section>
+  </aside>
 </main>
-<footer class="wrap">Map data © OpenStreetMap contributors</footer>
+<footer><div class="wrap">Map data from OpenStreetMap contributors.</div></footer>
 
 <dialog id="dlg" aria-labelledby="dlgTitle">
   <form class="dlg" id="form" novalidate>
     <h2 id="dlgTitle">Add a bottle</h2>
-    <div class="row2">
+    <div class="pair">
       <div class="field">
         <label for="iHost">Brought by</label>
         <select id="iHost" required></select>
@@ -239,19 +256,19 @@ footer{color:var(--muted);font-size:12px;padding:24px 0 40px;text-align:center}
     </div>
     <div class="field">
       <label for="iWhisky">Bottle</label>
-      <input type="text" id="iWhisky" maxlength="150" placeholder="e.g. Lagavulin 16" required autocomplete="off">
+      <input type="text" id="iWhisky" maxlength="150" placeholder="Lagavulin 16" required autocomplete="off">
     </div>
     <div class="field">
       <label for="iDist">Distillery</label>
       <select id="iDist" required></select>
-      <span class="hint">Not in the list? Choose “➕ New distillery…” at the bottom.</span>
+      <span class="hint">First time from this distillery? Choose “New distillery” at the end of the list.</span>
     </div>
     <fieldset id="newDist" hidden>
       <legend>New distillery</legend>
-      <div class="row2">
+      <div class="pair">
         <div class="field">
           <label for="nName">Name</label>
-          <input type="text" id="nName" maxlength="100" placeholder="e.g. Kilkerran">
+          <input type="text" id="nName" maxlength="100" placeholder="Kilkerran">
         </div>
         <div class="field">
           <label for="nRegion">Region</label>
@@ -263,25 +280,25 @@ footer{color:var(--muted);font-size:12px;padding:24px 0 40px;text-align:center}
         <input type="text" id="nCountry" maxlength="60" value="Scotland">
       </div>
       <div class="field">
-        <label for="nSearch">Location</label>
+        <label for="nSearch">Where is it?</label>
         <div class="find">
-          <input type="text" id="nSearch" placeholder="Search a place or address">
-          <button type="button" class="btn small" id="nFind">Find</button>
+          <input type="text" id="nSearch" placeholder="Town or address">
+          <button type="button" class="btn" id="nFind">Find</button>
         </div>
-        <span class="hint" id="nHint">Search, or click the map to drop the pin.</span>
+        <span class="hint" id="nHint">Search for it, or click the map to place the pin.</span>
       </div>
       <div id="pickMap" aria-label="Click to place the distillery"></div>
     </fieldset>
     <div class="field">
-      <label for="iImage">Image link <span class="muted">(optional)</span></label>
-      <input type="url" id="iImage" maxlength="600" placeholder="https://…">
+      <label for="iImage">Photo link (optional)</label>
+      <input type="url" id="iImage" maxlength="600" placeholder="https://">
     </div>
     <div class="err-msg" id="formErr" role="alert"></div>
-    <div class="dlg-actions">
-      <button type="button" class="btn danger" id="delBtn" hidden>Delete</button>
+    <div class="actions">
+      <button type="button" class="btn danger" id="delBtn" hidden>Delete bottle</button>
       <span class="spacer"></span>
       <button type="button" class="btn" id="cancelBtn">Cancel</button>
-      <button type="submit" class="btn primary" id="saveBtn">Save bottle</button>
+      <button type="submit" class="btn primary" id="saveBtn">Add bottle</button>
     </div>
   </form>
 </dialog>
@@ -310,9 +327,9 @@ const db = getFirestore(app);
 /* ---------- Settings ---------- */
 const HOSTS = ["Andrew", "Matt", "Pat", "Ross", "Group"];
 const REGIONS = {
-  Speyside: "#b8691f", Highland: "#5d8a36", Islay: "#2f6f9a", Islands: "#7c5aa6",
-  Campbeltown: "#c0453e", Lowland: "#c79a12", Blend: "#7a7066", Japan: "#d4537e",
-  Canada: "#d35a1e", Ireland: "#2e9a6a", USA: "#3d5bb8", Other: "#8a8a8a"
+  Speyside: "#d9a35a", Highland: "#b48fd0", Islay: "#7fa9dc", Islands: "#5fb8a8",
+  Campbeltown: "#e07a64", Lowland: "#e3cf7a", Blend: "#b3aa98", Japan: "#e690ad",
+  Canada: "#e8a04c", Ireland: "#84cf8e", USA: "#9aa8f2", Other: "#9a9a9a"
 };
 const SCOTLAND = [[54.6, -7.6], [59.2, -0.8]];
 
@@ -426,6 +443,7 @@ const SEED_BOTTLES = [
   ["Group","Macallan Edition No. 2","macallan",TWE+"900/macob.non75.jpg"]
 ];
 
+
 /* ---------- Helpers ---------- */
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -438,14 +456,13 @@ const fmtDate = (s) => {
   return new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
 };
 const slug = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+const plural = (n, one, many) => `<b>${n}</b> ${n === 1 ? one : many}`;
 let toastTimer;
 function toast(msg) {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3200);
 }
-function setStatus(kind, text) {
-  const s = $("#status"); s.className = "status " + kind; $("#statusText").textContent = text;
-}
+function setStatus(kind, text) { const s = $("#status"); s.className = "status " + kind; s.textContent = text; }
 
 /* ---------- State ---------- */
 const distilleries = new Map();
@@ -453,7 +470,6 @@ let bottles = [];
 let loaded = { b: false, d: false };
 const filters = { q: "", host: "", region: "", sort: "date" };
 let editingId = null;
-
 const distOf = (b) => distilleries.get(b.distilleryId) || { name: b.distilleryId || "Unknown", region: "Other", country: "" };
 
 /* ---------- Seed once ---------- */
@@ -476,23 +492,23 @@ async function ensureSeed() {
 }
 
 /* ---------- Map ---------- */
-const map = L.map("map", { scrollWheelZoom: false, worldCopyJump: true });
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+const map = L.map("map", { scrollWheelZoom: false, worldCopyJump: true, zoomControl: false });
+L.control.zoom({ position: "bottomright" }).addTo(map);
 L.tileLayer(TILE_URL, { maxZoom: 19, attribution: TILE_ATTR }).addTo(map);
-map.fitBounds(SCOTLAND);
+const fitScotland = () => map.fitBounds(SCOTLAND, { paddingTopLeft: window.innerWidth > 700 ? [460, 0] : [0, 0] });
+fitScotland();
 map.on("click", () => map.scrollWheelZoom.enable());
 const markers = L.layerGroup().addTo(map);
-let mapView = "scot";
 
 function setView(v) {
-  mapView = v;
   $("#viewScot").setAttribute("aria-pressed", v === "scot");
   $("#viewWorld").setAttribute("aria-pressed", v === "world");
-  if (v === "scot") { map.fitBounds(SCOTLAND); return; }
+  if (v === "scot") { fitScotland(); return; }
   const pts = [];
   markers.eachLayer((m) => pts.push(m.getLatLng()));
-  if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [30, 30] });
+  if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40] });
   else map.setView([30, 0], 2);
 }
 $("#viewScot").onclick = () => setView("scot");
@@ -509,63 +525,58 @@ function renderMap(list) {
     const d = distilleries.get(id);
     if (!d || typeof d.lat !== "number" || typeof d.lng !== "number") continue;
     const n = bs.length;
-    const items = bs
-      .slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""))
-      .map((b) => `<li>${esc(b.whisky)} <span style="color:#74685a">— ${esc(b.host)}${b.date ? ", " + esc(fmtDate(b.date)) : ""}</span></li>`)
-      .join("");
-    const html = `<div class="pop"><h3>${esc(d.name)}</h3><div class="sub">${esc(d.region)}${d.address ? " · " + esc(d.address) : ""}</div>
-      <strong>${n} bottle${n > 1 ? "s" : ""}</strong><ul>${items}</ul></div>`;
+    const items = bs.slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+      .map((b) => `<li>${esc(b.whisky)} <span>${esc(b.host)}${b.date ? ", " + esc(fmtDate(b.date)) : ""}</span></li>`).join("");
+    const html = `<div class="pop"><h3>${esc(d.name)}</h3><div class="sub">${esc(d.region)}${d.address ? ". " + esc(d.address) : ""}</div><ul>${items}</ul></div>`;
     L.circleMarker([d.lat, d.lng], {
-      radius: 6 + Math.min(n, 6) * 1.6, color: "#fff", weight: 1.5,
-      fillColor: colorOf(d.region), fillOpacity: 0.92
-    }).bindPopup(html, { maxWidth: 280 }).bindTooltip(`${d.name} (${n})`).addTo(markers);
+      radius: 5 + Math.min(n, 6) * 1.5, color: "#13241c", weight: 2,
+      fillColor: colorOf(d.region), fillOpacity: 0.95
+    }).bindPopup(html, { maxWidth: 300 }).bindTooltip(`${d.name}, ${n} bottle${n > 1 ? "s" : ""}`, { direction: "top", offset: [0, -6] }).addTo(markers);
   }
 }
 
-/* ---------- Dashboard ---------- */
-function bars(el, entries, colorFn) {
-  const max = Math.max(1, ...entries.map((e) => e[1]));
-  el.innerHTML = entries.length ? entries.map(([label, n]) => `
-    <div class="bar"><span>${esc(label)}</span>
-      <span class="track" role="img" aria-label="${esc(label)}: ${n}"><span class="fill" style="width:${(n / max) * 100}%;${colorFn ? "background:" + colorFn(label) : ""}"></span></span>
-      <span class="v">${n}</span></div>`).join("") : `<p class="empty">Nothing yet.</p>`;
-}
+/* ---------- Summary ---------- */
 function countBy(list, fn) {
   const m = new Map();
   for (const x of list) { const k = fn(x); m.set(k, (m.get(k) || 0) + 1); }
   return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 }
-
-function renderStats(list) {
-  const ds = new Set(list.map((b) => b.distilleryId));
-  $("#sBottles").textContent = list.length;
-  $("#sDist").textContent = ds.size;
-  $("#sRegions").textContent = new Set(list.map((b) => distOf(b).region)).size;
-  $("#sCountries").textContent = new Set(list.map((b) => distOf(b).country).filter(Boolean)).size;
+function rows(el, entries, colorFn) {
+  const max = Math.max(1, ...entries.map((e) => e[1]));
+  el.innerHTML = entries.length ? entries.map(([label, n]) => `
+    <div class="row"><span>${esc(label)}</span><span class="v">${n}</span>
+      <span class="track" aria-hidden="true"><span class="fill" style="width:${(n / max) * 100}%;${colorFn ? "background:" + colorFn(label) : ""}"></span></span></div>`).join("")
+    : `<p class="quiet">Nothing matches the current filters.</p>`;
 }
-
+function renderTally(list) {
+  const nd = new Set(list.map((b) => b.distilleryId)).size;
+  const nr = new Set(list.map((b) => distOf(b).region)).size;
+  const nc = new Set(list.map((b) => distOf(b).country).filter(Boolean)).size;
+  const filteredNote = list.length !== bottles.length ? " in this view" : "";
+  $("#tally").innerHTML = list.length
+    ? `${plural(list.length, "bottle", "bottles")} from ${plural(nd, "distillery", "distilleries")}, across ${plural(nr, "region", "regions")} and ${plural(nc, "country", "countries")}${filteredNote}.`
+    : "No bottles in this view yet.";
+}
 function renderLegend() {
   const used = new Set(bottles.map((b) => distOf(b).region));
-  const names = Object.keys(REGIONS).filter((r) => used.has(r));
-  $("#legend").innerHTML = names.map((r) =>
-    `<button type="button" class="chip" data-region="${esc(r)}" aria-pressed="${filters.region === r}"><span class="sw" style="background:${colorOf(r)}"></span>${esc(r)}</button>`
+  $("#legend").innerHTML = Object.keys(REGIONS).filter((r) => used.has(r)).map((r) =>
+    `<button type="button" class="key" data-region="${esc(r)}" aria-pressed="${filters.region === r}"><span class="sw" style="background:${colorOf(r)}"></span>${esc(r)}</button>`
   ).join("");
 }
 $("#legend").addEventListener("click", (e) => {
-  const c = e.target.closest(".chip"); if (!c) return;
+  const c = e.target.closest(".key"); if (!c) return;
   filters.region = filters.region === c.dataset.region ? "" : c.dataset.region;
   $("#fRegion").value = filters.region;
   renderAll();
 });
-
 function renderLatest() {
   const dated = bottles.filter((b) => b.date).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   $("#latest").innerHTML = dated.length
-    ? dated.map((b) => `<li><span><span class="w">${esc(b.whisky)}</span><br><span class="muted">${esc(b.host)} · ${esc(distOf(b).name)}</span></span><span class="m">${esc(fmtDate(b.date))}</span></li>`).join("")
-    : `<li class="empty">Bottles added with a date will show up here.</li>`;
+    ? dated.map((b) => `<li><span class="n">${esc(b.whisky)}</span><span class="d">${esc(fmtDate(b.date))}, from ${esc(b.host)}</span></li>`).join("")
+    : `<li class="quiet">Add a bottle with the date it was tasted and it will appear here.</li>`;
 }
 
-/* ---------- List ---------- */
+/* ---------- Ledger ---------- */
 function filtered() {
   const q = filters.q.trim().toLowerCase();
   return bottles.filter((b) => {
@@ -577,9 +588,9 @@ function filtered() {
   });
 }
 function sorted(list) {
-  const s = filters.sort, by = (f) => (a, b) => f(a).localeCompare(f(b));
+  const s = filters.sort;
   const l = list.slice();
-  if (s === "name") l.sort(by((b) => b.whisky));
+  if (s === "name") l.sort((a, b) => a.whisky.localeCompare(b.whisky));
   else if (s === "dist") l.sort((a, b) => distOf(a).name.localeCompare(distOf(b).name) || a.whisky.localeCompare(b.whisky));
   else if (s === "host") l.sort((a, b) => a.host.localeCompare(b.host) || a.whisky.localeCompare(b.whisky));
   else if (s === "region") l.sort((a, b) => distOf(a).region.localeCompare(distOf(b).region) || a.whisky.localeCompare(b.whisky));
@@ -592,37 +603,47 @@ function sorted(list) {
   });
   return l;
 }
+function monogram(b, d) {
+  const letter = (b.whisky.match(/[A-Za-z]/) || ["?"])[0].toUpperCase();
+  return `<span class="mono" style="border-color:${colorOf(d.region)}" aria-hidden="true">${letter}</span>`;
+}
 function renderList(list) {
-  const rows = sorted(list);
-  $("#rows").innerHTML = rows.map((b) => {
+  const items = sorted(list);
+  $("#rows").innerHTML = items.map((b) => {
     const d = distOf(b), img = safeUrl(b.image);
     const thumb = img
-      ? `<img class="thumb" src="${esc(img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<span class=&quot;thumb ph&quot; aria-hidden=&quot;true&quot;>🥃</span>'">`
-      : `<span class="thumb ph" aria-hidden="true">🥃</span>`;
-    return `<tr data-id="${esc(b.id)}">
-      <td><span class="wh">${thumb}${esc(b.whisky)}</span></td>
-      <td class="c-dist">${esc(d.name)}</td>
-      <td class="c-region"><span class="rg"><span class="sw" style="background:${colorOf(d.region)}"></span>${esc(d.region)}</span></td>
-      <td class="c-host">${esc(b.host)}</td>
-      <td class="c-date">${b.date ? esc(fmtDate(b.date)) : '<span class="muted">—</span>'}</td>
-      <td class="c-act"><button type="button" class="edit" data-id="${esc(b.id)}" aria-label="Edit ${esc(b.whisky)}">Edit</button></td></tr>`;
+      ? `<img class="thumb" src="${esc(img)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-mono="${esc(monogram(b, d))}">`
+      : monogram(b, d);
+    return `<li class="entry" tabindex="0" data-id="${esc(b.id)}" aria-label="${esc(b.whisky)}, brought by ${esc(b.host)}. Open to edit.">
+      <span class="thumbcell">${thumb}</span>
+      <span class="bottle"><span class="n">${esc(b.whisky)}</span><span class="d">${esc(d.name)}</span></span>
+      <span class="rg"><span class="sw" style="background:${colorOf(d.region)}"></span>${esc(d.region)}</span>
+      <span class="who">${esc(b.host)}</span>
+      <span class="when">${b.date ? esc(fmtDate(b.date)) : "Undated"}</span></li>`;
   }).join("");
-  $("#noRows").hidden = rows.length > 0;
-  $("#count").textContent = rows.length === bottles.length ? `${rows.length} bottles` : `${rows.length} of ${bottles.length} bottles`;
+  $("#rows").querySelectorAll("img.thumb").forEach((img) => {
+    img.addEventListener("error", () => { img.outerHTML = img.dataset.mono; }, { once: true });
+  });
+  $("#noRows").hidden = items.length > 0;
+  $("#count").textContent = items.length === bottles.length ? `${items.length} bottles` : `Showing ${items.length} of ${bottles.length} bottles`;
 }
-$("#rows").addEventListener("click", (e) => {
-  const tr = e.target.closest("tr[data-id]"); if (!tr) return;
-  const b = bottles.find((x) => x.id === tr.dataset.id); if (b) openForm(b);
+function openFromRow(el) {
+  const b = bottles.find((x) => x.id === el.dataset.id); if (b) openForm(b);
+}
+$("#rows").addEventListener("click", (e) => { const li = e.target.closest(".entry"); if (li) openFromRow(li); });
+$("#rows").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const li = e.target.closest(".entry"); if (li) { e.preventDefault(); openFromRow(li); }
 });
 
 function renderAll() {
   if (!loaded.b || !loaded.d) return;
   const list = filtered();
-  renderStats(list);
+  renderTally(list);
   renderMap(list);
   renderLegend();
-  bars($("#byHost"), countBy(list, (b) => b.host));
-  bars($("#byRegion"), countBy(list, (b) => distOf(b).region), colorOf);
+  rows($("#byHost"), countBy(list, (b) => b.host));
+  rows($("#byRegion"), countBy(list, (b) => distOf(b).region), colorOf);
   renderLatest();
   renderList(list);
 }
@@ -649,24 +670,25 @@ $("#csvBtn").addEventListener("click", () => {
   a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 });
 
-/* ---------- Add / edit form ---------- */
+/* ---------- Add / edit ---------- */
 const dlg = $("#dlg");
 let pickMap = null, pickMarker = null, pickLatLng = null;
 
 function fillDistSelect(selected) {
   const sel = $("#iDist"); sel.innerHTML = "";
-  sel.add(new Option("Choose a distillery…", ""));
+  sel.add(new Option("Choose a distillery", ""));
   [...distilleries.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name))
-    .forEach(([id, d]) => sel.add(new Option(`${d.name} — ${d.region}`, id)));
-  sel.add(new Option("➕ New distillery…", "__new"));
+    .forEach(([id, d]) => sel.add(new Option(`${d.name} (${d.region})`, id)));
+  sel.add(new Option("New distillery…", "__new"));
   sel.value = selected || "";
 }
 function setPin(latlng, zoom) {
   pickLatLng = latlng;
-  if (!pickMarker) pickMarker = L.marker(latlng, { draggable: true }).addTo(pickMap).on("dragend", (e) => (pickLatLng = e.target.getLatLng()));
-  else pickMarker.setLatLng(latlng);
+  if (!pickMarker) {
+    pickMarker = L.circleMarker(latlng, { radius: 9, color: "#13241c", weight: 2, fillColor: "#c9a46a", fillOpacity: 1 }).addTo(pickMap);
+  } else pickMarker.setLatLng(latlng);
   if (zoom) pickMap.setView(latlng, zoom);
-  $("#nHint").textContent = `Pin set at ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)} — drag it to adjust.`;
+  $("#nHint").textContent = `Pin placed. Click the map again to move it.`;
 }
 function showNewDist(show) {
   $("#newDist").hidden = !show;
@@ -683,15 +705,15 @@ $("#iDist").addEventListener("change", (e) => showNewDist(e.target.value === "__
 
 async function findPlace() {
   const q = $("#nSearch").value.trim() || ($("#nName").value.trim() ? $("#nName").value.trim() + " distillery" : "");
-  if (!q) { $("#nHint").textContent = "Type a place or the distillery name first."; return; }
+  if (!q) { $("#nHint").textContent = "Type a town, an address or the distillery name first."; return; }
   $("#nHint").textContent = "Searching…";
   try {
     const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`, { headers: { "Accept-Language": "en" } });
     const res = await r.json();
-    if (!res.length) { $("#nHint").textContent = "Couldn't find that — try a nearby town, or click the map."; return; }
+    if (!res.length) { $("#nHint").textContent = "No match. Try the nearest town, or click the map."; return; }
     setPin(L.latLng(+res[0].lat, +res[0].lon), 12);
   } catch {
-    $("#nHint").textContent = "Search isn't available right now — click the map to drop the pin.";
+    $("#nHint").textContent = "Search isn't responding. Click the map to place the pin instead.";
   }
 }
 $("#nFind").addEventListener("click", findPlace);
@@ -700,7 +722,7 @@ $("#nSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.pr
 function openForm(b) {
   editingId = b ? b.id : null;
   $("#dlgTitle").textContent = b ? "Edit bottle" : "Add a bottle";
-  $("#saveBtn").textContent = b ? "Save changes" : "Save bottle";
+  $("#saveBtn").textContent = b ? "Save changes" : "Add bottle";
   $("#delBtn").hidden = !b;
   $("#iHost").value = b ? b.host : (filters.host || "Andrew");
   $("#iWhisky").value = b ? b.whisky : "";
@@ -709,7 +731,7 @@ function openForm(b) {
   fillDistSelect(b ? b.distilleryId : "");
   $("#nName").value = ""; $("#nSearch").value = ""; $("#nCountry").value = "Scotland"; $("#nRegion").value = "Speyside";
   pickLatLng = null; if (pickMarker) { pickMarker.remove(); pickMarker = null; }
-  $("#nHint").textContent = "Search, or click the map to drop the pin.";
+  $("#nHint").textContent = "Search for it, or click the map to place the pin.";
   showNewDist(false);
   $("#formErr").textContent = "";
   dlg.showModal();
@@ -726,16 +748,16 @@ $("#form").addEventListener("submit", async (e) => {
   const date = $("#iDate").value || "";
   const image = $("#iImage").value.trim();
   let distilleryId = $("#iDist").value;
-  if (!whisky) return err("Give the bottle a name.");
-  if (!distilleryId) return err("Choose a distillery (or add a new one).");
-  if (image && !safeUrl(image)) return err("The image link should start with http:// or https://");
+  if (!whisky) return err("Enter the bottle's name.");
+  if (!distilleryId) return err("Choose a distillery, or pick “New distillery” to add one.");
+  if (image && !safeUrl(image)) return err("Photo links need to start with http:// or https://");
 
   $("#saveBtn").disabled = true;
   try {
     if (distilleryId === "__new") {
       const name = $("#nName").value.trim();
-      if (!name) { $("#saveBtn").disabled = false; return err("Name the new distillery."); }
-      if (!pickLatLng) { $("#saveBtn").disabled = false; return err("Place the distillery on the map (search or click)."); }
+      if (!name) return err("Enter the new distillery's name.");
+      if (!pickLatLng) return err("Place the distillery on the map: search for it or click its location.");
       const id = slug(name) || "distillery-" + Date.now();
       if (!distilleries.has(id)) {
         await setDoc(doc(db, "distilleries", id), {
@@ -749,10 +771,10 @@ $("#form").addEventListener("submit", async (e) => {
     if (editingId) await updateDoc(doc(db, "bottles", editingId), data);
     else await addDoc(collection(db, "bottles"), { ...data, addedAt: serverTimestamp() });
     dlg.close();
-    toast(editingId ? "Bottle updated" : `Added ${whisky} 🥃`);
+    toast(editingId ? "Changes saved" : `${whisky} added to the ledger`);
   } catch (ex) {
     console.error(ex);
-    err(ex.code === "permission-denied" ? "The database refused the save — check the Firestore rules." : "Couldn't save — check your connection and try again.");
+    err(ex.code === "permission-denied" ? "The database rejected this save. Check the Firestore rules." : "Couldn't save. Check your connection and try again.");
   } finally {
     $("#saveBtn").disabled = false;
   }
@@ -760,27 +782,27 @@ $("#form").addEventListener("submit", async (e) => {
 
 $("#delBtn").addEventListener("click", async () => {
   const b = bottles.find((x) => x.id === editingId); if (!b) return;
-  if (!confirm(`Delete "${b.whisky}" from the club log? This can't be undone.`)) return;
+  if (!confirm(`Delete "${b.whisky}" from the ledger? This can't be undone.`)) return;
   try { await deleteDoc(doc(db, "bottles", b.id)); dlg.close(); toast("Bottle deleted"); }
-  catch (ex) { console.error(ex); $("#formErr").textContent = "Couldn't delete — try again."; }
+  catch (ex) { console.error(ex); $("#formErr").textContent = "Couldn't delete. Try again."; }
 });
 
 /* ---------- Live data ---------- */
 function onErr(ex) {
   console.error(ex);
-  setStatus("err", ex.code === "permission-denied" ? "Database locked — check rules" : "Offline");
+  setStatus("err", ex.code === "permission-denied" ? "Database is blocking access. Check the Firestore rules." : "Offline. Changes will sync when you reconnect.");
 }
 onSnapshot(collection(db, "distilleries"), (snap) => {
   distilleries.clear();
   snap.forEach((d) => distilleries.set(d.id, d.data()));
-  loaded.d = true; setStatus("live", "Live"); renderAll();
+  loaded.d = true; setStatus("live", "Live, updates automatically"); renderAll();
 }, onErr);
 onSnapshot(collection(db, "bottles"), (snap) => {
   bottles = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  loaded.b = true; setStatus("live", "Live"); renderAll();
+  loaded.b = true; setStatus("live", "Live, updates automatically"); renderAll();
 }, onErr);
 
-ensureSeed().catch((ex) => { console.error(ex); if (ex.code === "permission-denied") setStatus("err", "Database locked — check rules"); });
+ensureSeed().catch((ex) => { console.error(ex); if (ex.code === "permission-denied") onErr(ex); });
 </script>
 </body>
 </html>
