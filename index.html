@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scotch Club</title>
+<meta name="description" content="The Scotch Club tasting map and bottle log.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥃</text></svg>">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5efe6; --surface:#fffdf9; --surface-2:#f9f4ec; --ink:#2a2118; --muted:#74685a;
+  --line:#e4d9c8; --accent:#93561b; --accent-hover:#7a4613; --accent-ink:#fff;
+  --danger:#b3261e; --focus:#2f6f9a; --shadow:0 1px 2px rgba(60,40,20,.06),0 6px 18px rgba(60,40,20,.07);
+  --radius:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#16120e; --surface:#211b15; --surface-2:#2a231c; --ink:#f2e8db; --muted:#b5a691;
+    --line:#3b3128; --accent:#e0a057; --accent-hover:#f0b26b; --accent-ink:#1b1209;
+    --danger:#ff8a80; --focus:#8cc4ea; --shadow:none;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:700;margin:0;letter-spacing:-.01em}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:6px}
+.skip{position:absolute;left:-999px;top:8px;background:var(--surface);padding:8px 12px;border-radius:8px;z-index:9999}
+.skip:focus{left:8px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+
+/* Header */
+header{padding:28px 0 18px}
+.head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.brand h1{font-size:clamp(28px,4vw,40px);line-height:1.05}
+.brand p{margin:4px 0 0;color:var(--muted)}
+.head-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:#aaa}
+.status.live .dot{background:#3a9d5d;box-shadow:0 0 0 3px rgba(58,157,93,.18)}
+.status.err .dot{background:var(--danger)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 16px;cursor:pointer;font-weight:500;min-height:42px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.primary:hover{background:var(--accent-hover)}
+.btn.danger{color:var(--danger);border-color:transparent;background:transparent}
+.btn.small{padding:5px 12px;min-height:34px;font-size:13px}
+
+/* Cards / grid */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.stat{padding:14px 16px}
+.stat .n{font-family:Fraunces,Georgia,serif;font-size:30px;font-weight:700;line-height:1.1}
+.stat .l{color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
+.panel{padding:16px}
+.panel h2{font-size:19px;margin-bottom:10px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.panel-head h2{margin:0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:5px 12px;cursor:pointer;font-size:13px;min-height:34px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+#map{height:460px;border-radius:10px;border:1px solid var(--line);z-index:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:3px 10px;font-size:13px;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--ink);font-weight:600}
+.sw{width:10px;height:10px;border-radius:50%;flex:none}
+.side{display:flex;flex-direction:column;gap:16px}
+.bars{display:flex;flex-direction:column;gap:7px}
+.bar{display:grid;grid-template-columns:92px 1fr 28px;align-items:center;gap:8px;font-size:13px}
+.bar .track,.bar .fill{display:block}
+.bar .track{height:12px;background:var(--surface-2);border-radius:999px;overflow:hidden}
+.bar .fill{height:100%;border-radius:999px;background:var(--accent)}
+.bar .v{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.latest{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.latest li{display:flex;justify-content:space-between;gap:8px;font-size:13px;border-bottom:1px dashed var(--line);padding-bottom:6px}
+.latest li:last-child{border:0}
+.latest .w{font-weight:600}
+.latest .m{color:var(--muted);white-space:nowrap}
+.empty{color:var(--muted);font-size:13px}
+
+/* List */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar input,.toolbar select,.field input,.field select{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 10px;min-height:42px}
+.toolbar input[type=search]{flex:1 1 220px}
+.count{color:var(--muted);font-size:13px;margin-left:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;padding:8px;border-bottom:1px solid var(--line)}
+td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface-2)}
+.wh{display:flex;align-items:center;gap:10px;font-weight:600}
+.thumb{width:34px;height:34px;object-fit:contain;border-radius:6px;background:#fff;flex:none}
+.thumb.ph{display:grid;place-items:center;background:var(--surface-2);font-size:16px}
+.rg{display:inline-flex;align-items:center;gap:6px}
+.edit{border:0;background:transparent;color:var(--accent);cursor:pointer;font-weight:600;padding:6px}
+.muted{color:var(--muted)}
+
+/* Dialog */
+dialog{border:0;border-radius:18px;padding:0;width:min(560px,calc(100vw - 24px));background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+dialog::backdrop{background:rgba(20,14,8,.5)}
+.dlg{padding:20px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 40px);overflow:auto}
+.dlg h2{font-size:22px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:13px;font-weight:600}
+.field .hint{font-size:12px;color:var(--muted)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+fieldset{border:1px dashed var(--line);border-radius:12px;padding:12px;margin:0;display:flex;flex-direction:column;gap:10px}
+legend{font-size:13px;font-weight:600;padding:0 6px}
+#pickMap{height:220px;border-radius:10px;border:1px solid var(--line)}
+.find{display:flex;gap:8px}
+.find input{flex:1}
+.dlg-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:4px}
+.dlg-actions .spacer{flex:1}
+.err-msg{color:var(--danger);font-size:13px;min-height:1em}
+
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:2000;max-width:calc(100vw - 32px)}
+.toast.show{opacity:1}
+footer{color:var(--muted);font-size:12px;padding:24px 0 40px;text-align:center}
+
+/* Leaflet popup theming */
+.leaflet-popup-content{margin:12px 14px;font:13px/1.45 Inter,system-ui,sans-serif}
+.pop h3{font-size:15px;margin:0 0 2px}
+.pop .sub{color:#74685a;margin-bottom:6px}
+.pop ul{margin:0;padding-left:16px}
+
+@media (max-width:900px){
+  .grid{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  #map{height:380px}
+}
+@media (max-width:640px){
+  .row2{grid-template-columns:1fr}
+  thead{display:none}
+  table,tbody,tr,td{display:block;width:100%}
+  tr{border-bottom:1px solid var(--line);padding:8px 0}
+  td{border:0;padding:2px 4px}
+  td.c-host,td.c-date,td.c-region{display:inline-block;width:auto;color:var(--muted);font-size:13px;margin-right:10px}
+  td.c-dist{color:var(--muted);font-size:13px}
+  td.c-act{display:none}
+  .count{margin-left:0;width:100%}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#list">Skip to bottle list</a>
+<header>
+  <div class="wrap head">
+    <div class="brand">
+      <h1>🥃 Scotch Club</h1>
+      <p>Andrew · Matt · Pat · Ross — every bottle we've opened</p>
+    </div>
+    <div class="head-actions">
+      <span id="status" class="status" role="status"><span class="dot"></span><span id="statusText">Connecting…</span></span>
+      <button id="addBtn" class="btn primary" type="button">+ Add bottle</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="stats" aria-label="Club totals">
+    <div class="card stat"><div class="n" id="sBottles">–</div><div class="l">Bottles tasted</div></div>
+    <div class="card stat"><div class="n" id="sDist">–</div><div class="l">Distilleries</div></div>
+    <div class="card stat"><div class="n" id="sRegions">–</div><div class="l">Regions</div></div>
+    <div class="card stat"><div class="n" id="sCountries">–</div><div class="l">Countries</div></div>
+  </section>
+
+  <section class="grid">
+    <div class="card panel">
+      <div class="panel-head">
+        <h2>Distillery map</h2>
+        <div class="seg" role="group" aria-label="Map view">
+          <button type="button" id="viewScot" aria-pressed="true">Scotland</button>
+          <button type="button" id="viewWorld" aria-pressed="false">World</button>
+        </div>
+      </div>
+      <div id="map" role="region" aria-label="Map of distilleries tasted"></div>
+      <div class="legend" id="legend" aria-label="Filter by region"></div>
+    </div>
+    <div class="side">
+      <div class="card panel">
+        <h2>Bottles by member</h2>
+        <div class="bars" id="byHost"></div>
+      </div>
+      <div class="card panel">
+        <h2>Bottles by region</h2>
+        <div class="bars" id="byRegion"></div>
+      </div>
+      <div class="card panel">
+        <h2>Latest tastings</h2>
+        <ul class="latest" id="latest"></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="card panel" id="list" aria-labelledby="listTitle">
+    <div class="panel-head">
+      <h2 id="listTitle">The bottle log</h2>
+      <button type="button" class="btn small" id="csvBtn">Download CSV</button>
+    </div>
+    <div class="toolbar">
+      <input type="search" id="q" placeholder="Search bottles or distilleries" aria-label="Search bottles or distilleries">
+      <select id="fHost" aria-label="Filter by member"><option value="">All members</option></select>
+      <select id="fRegion" aria-label="Filter by region"><option value="">All regions</option></select>
+      <select id="sort" aria-label="Sort by">
+        <option value="date">Newest tasted</option>
+        <option value="name">Bottle A–Z</option>
+        <option value="dist">Distillery A–Z</option>
+        <option value="host">Member</option>
+        <option value="region">Region</option>
+      </select>
+      <span class="count" id="count" aria-live="polite"></span>
+    </div>
+    <table>
+      <thead><tr><th>Bottle</th><th>Distillery</th><th>Region</th><th>Brought by</th><th>Tasted</th><th><span class="skip">Edit</span></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <p class="empty" id="noRows" hidden>No bottles match those filters.</p>
+  </section>
+</main>
+<footer class="wrap">Map data © OpenStreetMap contributors · Tiles © CARTO</footer>
+
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <form class="dlg" id="form" novalidate>
+    <h2 id="dlgTitle">Add a bottle</h2>
+    <div class="row2">
+      <div class="field">
+        <label for="iHost">Brought by</label>
+        <select id="iHost" required></select>
+      </div>
+      <div class="field">
+        <label for="iDate">Date tasted</label>
+        <input type="date" id="iDate">
+      </div>
+    </div>
+    <div class="field">
+      <label for="iWhisky">Bottle</label>
+      <input type="text" id="iWhisky" maxlength="150" placeholder="e.g. Lagavulin 16" required autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="iDist">Distillery</label>
+      <select id="iDist" required></select>
+      <span class="hint">Not in the list? Choose “➕ New distillery…” at the bottom.</span>
+    </div>
+    <fieldset id="newDist" hidden>
+      <legend>New distillery</legend>
+      <div class="row2">
+        <div class="field">
+          <label for="nName">Name</label>
+          <input type="text" id="nName" maxlength="100" placeholder="e.g. Kilkerran">
+        </div>
+        <div class="field">
+          <label for="nRegion">Region</label>
+          <select id="nRegion"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="nCountry">Country</label>
+        <input type="text" id="nCountry" maxlength="60" value="Scotland">
+      </div>
+      <div class="field">
+        <label for="nSearch">Location</label>
+        <div class="find">
+          <input type="text" id="nSearch" placeholder="Search a place or address">
+          <button type="button" class="btn small" id="nFind">Find</button>
+        </div>
+        <span class="hint" id="nHint">Search, or click the map to drop the pin.</span>
+      </div>
+      <div id="pickMap" aria-label="Click to place the distillery"></div>
+    </fieldset>
+    <div class="field">
+      <label for="iImage">Image link <span class="muted">(optional)</span></label>
+      <input type="url" id="iImage" maxlength="600" placeholder="https://…">
+    </div>
+    <div class="err-msg" id="formErr" role="alert"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn danger" id="delBtn" hidden>Delete</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="cancelBtn">Cancel</button>
+      <button type="submit" class="btn primary" id="saveBtn">Save bottle</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import {
+  getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc,
+  deleteDoc, getDoc, writeBatch, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDTFWhGvNzEYMn-A6z5QYIA8r8043PZwto",
+  authDomain: "scotch-club.firebaseapp.com",
+  projectId: "scotch-club",
+  storageBucket: "scotch-club.firebasestorage.app",
+  messagingSenderId: "485698525557",
+  appId: "1:485698525557:web:130f32bf31b61444851b3c"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+/* ---------- Settings ---------- */
+const HOSTS = ["Andrew", "Matt", "Pat", "Ross", "Group"];
+const REGIONS = {
+  Speyside: "#b8691f", Highland: "#5d8a36", Islay: "#2f6f9a", Islands: "#7c5aa6",
+  Campbeltown: "#c0453e", Lowland: "#c79a12", Blend: "#7a7066", Japan: "#d4537e",
+  Canada: "#d35a1e", Ireland: "#2e9a6a", USA: "#3d5bb8", Other: "#8a8a8a"
+};
+const SCOTLAND = [[54.6, -7.6], [59.2, -0.8]];
+
+/* ---------- Seed data (loaded once, the first time anyone opens the page) ---------- */
+// id, name, region, country, lat, lng, address
+const SEED_DISTILLERIES = [
+  ["lagavulin","Lagavulin","Islay","Scotland",55.6355,-6.1265,"Port Ellen, Isle of Islay PA42 7DZ"],
+  ["springbank","Springbank","Campbeltown","Scotland",55.4253,-5.6082,"85 Longrow, Campbeltown PA28 6EX"],
+  ["pulteney","Old Pulteney","Highland","Scotland",58.4369,-3.0915,"Huddart St, Wick KW1 5BA"],
+  ["balvenie","Balvenie","Speyside","Scotland",57.4524,-3.1236,"Dufftown, Keith AB55 4BB"],
+  ["tobermory","Tobermory (Ledaig)","Islands","Scotland",56.6214,-6.0662,"Tobermory, Isle of Mull PA75 6NR"],
+  ["talisker","Talisker","Islands","Scotland",57.3021,-6.3567,"Carbost, Isle of Skye IV47 8SR"],
+  ["glenfiddich","Glenfiddich","Speyside","Scotland",57.4549,-3.1287,"Dufftown, Keith AB55 4DH"],
+  ["laphroaig","Laphroaig","Islay","Scotland",55.6302,-6.1520,"Port Ellen, Isle of Islay PA42 7DU"],
+  ["ardbeg","Ardbeg","Islay","Scotland",55.6407,-6.1083,"Port Ellen, Isle of Islay PA42 7EA"],
+  ["linkwood","Linkwood","Speyside","Scotland",57.6334,-3.2918,"Linkwood Rd, Elgin IV30 8RD"],
+  ["glen-garioch","Glen Garioch","Highland","Scotland",57.3361,-2.3247,"Oldmeldrum, Inverurie AB51 0ES"],
+  ["caol-ila","Caol Ila","Islay","Scotland",55.8547,-6.1090,"Port Askaig, Isle of Islay PA46 7RL"],
+  ["glenmorangie","Glenmorangie","Highland","Scotland",57.8263,-4.0786,"Tain, Ross-shire IV19 1PZ"],
+  ["bowmore","Bowmore","Islay","Scotland",55.7573,-6.2898,"School St, Bowmore, Isle of Islay PA43 7JS"],
+  ["craigellachie","Craigellachie","Speyside","Scotland",57.4914,-3.1814,"Craigellachie, Aberlour AB38 9ST"],
+  ["glengoyne","Glengoyne","Highland","Scotland",56.0207,-4.3576,"Dumgoyne, near Killearn G63 9LB"],
+  ["bunnahabhain","Bunnahabhain","Islay","Scotland",55.8838,-6.1258,"Port Askaig, Isle of Islay PA46 7RP"],
+  ["glenfarclas","Glenfarclas","Speyside","Scotland",57.4334,-3.3328,"Ballindalloch AB37 9BD"],
+  ["glendronach","GlenDronach","Highland","Scotland",57.4888,-2.6187,"Forgue, Huntly AB54 6DB"],
+  ["glenrothes","Glenrothes","Speyside","Scotland",57.5297,-3.2071,"Burnside St, Rothes AB38 7AA"],
+  ["compass-box","Compass Box","Blend","Scotland",51.4925,-0.2558,"London (blender)"],
+  ["inchgower","Inchgower","Speyside","Scotland",57.6738,-2.9620,"Rathven, Buckie AB56 5AB"],
+  ["clynelish","Clynelish","Highland","Scotland",58.0285,-3.8732,"Brora KW9 6LR"],
+  ["knockdhu","Knockdhu (anCnoc)","Highland","Scotland",57.5285,-2.7612,"Knock, Huntly AB54 7LJ"],
+  ["yamazaki","Yamazaki","Japan","Japan",34.8925,135.6744,"Shimamoto, Osaka 618-0001"],
+  ["alberta-distillers","Alberta Distillers","Canada","Canada",51.0245,-114.0325,"1521 34 Ave SE, Calgary AB T2G 1V9"],
+  ["johnnie-walker","Johnnie Walker","Blend","Scotland",55.9507,-3.2052,"Princes St, Edinburgh (brand home)"],
+  ["jura","Jura","Islands","Scotland",55.8333,-5.9500,"Craighouse, Isle of Jura PA60 7XT"],
+  ["nikka-miyagikyo","Nikka Miyagikyo","Japan","Japan",38.3075,140.6403,"Aoba-ku, Sendai, Miyagi 989-3433"],
+  ["bruichladdich","Bruichladdich","Islay","Scotland",55.7660,-6.3620,"Bruichladdich, Isle of Islay PA49 7UN"],
+  ["aberfeldy","Aberfeldy","Highland","Scotland",56.6223,-3.8505,"Aberfeldy, Perthshire PH15 2EB"],
+  ["highland-park","Highland Park","Islands","Scotland",58.9696,-2.9555,"Holm Rd, Kirkwall, Orkney KW15 1SU"],
+  ["dalmore","Dalmore","Highland","Scotland",57.6880,-4.2367,"Alness, Ross-shire IV17 0UT"],
+  ["kilchoman","Kilchoman","Islay","Scotland",55.7860,-6.4380,"Rockside Farm, Bruichladdich PA49 7UT"],
+  ["macallan","Macallan","Speyside","Scotland",57.4848,-3.2071,"Easter Elchies, Craigellachie AB38 9RX"],
+  ["deanston","Deanston","Highland","Scotland",56.1890,-4.0698,"Deanston, Doune FK16 6AR"],
+  ["glenkinchie","Glenkinchie","Lowland","Scotland",55.8880,-2.8916,"Pencaitland, Tranent EH34 5ET"],
+  ["auchentoshan","Auchentoshan","Lowland","Scotland",55.9227,-4.4363,"Dalmuir, Clydebank G81 4SJ"],
+  ["benromach","Benromach","Speyside","Scotland",57.6154,-3.6181,"Invererne Rd, Forres IV36 3EB"],
+  ["aberlour","Aberlour","Speyside","Scotland",57.4697,-3.2333,"Aberlour AB38 9PJ"],
+  ["oban","Oban","Highland","Scotland",56.4152,-5.4719,"Stafford St, Oban PA34 5NH"],
+  ["cragganmore","Cragganmore","Speyside","Scotland",57.4108,-3.3920,"Ballindalloch AB37 9AB"],
+  ["glenlivet","Glenlivet","Speyside","Scotland",57.3442,-3.3394,"Ballindalloch AB37 9DB"],
+  ["berry-bros","Berry Bros & Rudd","Blend","Scotland",51.5066,-0.1385,"London (bottler)"],
+  ["glen-scotia","Glen Scotia","Campbeltown","Scotland",55.4246,-5.6058,"12 High St, Campbeltown PA28 6DS"]
+];
+const TWE = "https://img.thewhiskyexchange.com/";
+// host, bottle, distillery id, image
+const SEED_BOTTLES = [
+  ["Andrew","Lagavulin 16","lagavulin","http://img2.findthebest.com/sites/default/files/821/media/images/Lagavulin_16_Scotch_294248.jpg"],
+  ["Andrew","Springbank 10","springbank","http://www.scotchnoob.com/images/scotches/springbank_10.jpg"],
+  ["Andrew","Old Pulteney 17","pulteney","http://maltandoak.com/wp-content/uploads/2014/10/png.png"],
+  ["Andrew","Balvenie 14 Caribbean Cask","balvenie","http://www.scotchnoob.com/images/scotches/balvenie_14_caribbean_cask.jpg"],
+  ["Andrew","Longrow Red","springbank","http://www.whiskysaga.com/wp-content/uploads/2014/10/longrow_red_11yo_port.jpg"],
+  ["Andrew","Ledaig 10","tobermory",TWE+"540/ldgob.10yov1.jpg"],
+  ["Andrew","Talisker Distillers Edition 1999","talisker","http://www.whisky.fr/media/catalog/product/cache/4/image/9df78eab33525d08d6e5fb8d27136e95/m/8/m8602_2.jpg"],
+  ["Andrew","Glenfiddich 15 Solera","glenfiddich",TWE+"900/gfdob.15yo.jpg"],
+  ["Andrew","Laphroaig 15","laphroaig",TWE+"900/lrgob.15yo.jpg"],
+  ["Andrew","Springbank 13 Green","springbank",TWE+"900/sprob.13yo.jpg"],
+  ["Andrew","Ardbeg Kelpie","ardbeg",TWE+"540/abgob.non31.jpg"],
+  ["Andrew","Linkwood 15","linkwood",TWE+"540/lkwg!m15yo.jpg"],
+  ["Andrew","Laphroaig Lore","laphroaig",""],
+  ["Matt","Glen Garioch 1994","glen-garioch","http://1.bp.blogspot.com/-_wyFfDttMXM/TuHwHkZ-o2I/AAAAAAAACRU/pY8c7GlMgX8/s1600/Glen+Garioch+1994.jpg"],
+  ["Matt","Caol Ila 9 (Adelphi, 2001)","caol-ila","http://cdn4.masterofmalt.com/whiskies/p-1987/caol-ila-9-year-old-2001-adelphi-whisky.jpg"],
+  ["Matt","Glenmorangie 18","glenmorangie","https://cdn2.masterofmalt.com/whiskies/p-2831/glenmorangie-18-year-old-extremely-rare-whisky.jpg"],
+  ["Matt","Bowmore 10 Tempest","bowmore",TWE+"540/bowob.10yov8.jpg"],
+  ["Matt","Craigellachie 13","craigellachie",TWE+"900/crgob.13yo.jpg"],
+  ["Matt","Glengoyne 18","glengoyne",TWE+"540/ggoob.18yo.jpg"],
+  ["Matt","Bunnahabhain Ceòbanach","bunnahabhain",TWE+"900/bunob.non4.jpg"],
+  ["Matt","Glenfarclas 17","glenfarclas",TWE+"540/gfcob.17yov1.jpg"],
+  ["Matt","GlenDronach 12","glendronach",TWE+"540/grnob.12yov4.jpg"],
+  ["Matt","Glenrothes 2005 (Gordon & MacPhail)","glenrothes","https://shop.mein-lieblingswhisky.de/WebRoot/Store3/Shops/es71912/59F3/937F/E3AD/000E/D22A/50ED/8964/604E/GuM_Glenrothes_CS_2005_ml.jpg"],
+  ["Matt","Compass Box No Name (Limited Edition)","compass-box",TWE+"900/vatted_com33.jpg"],
+  ["Matt","Inchgower 1997","inchgower",""],
+  ["Matt","Clynelish","clynelish",""],
+  ["Matt","anCnoc 24","knockdhu",""],
+  ["Pat","Yamazaki 12","yamazaki",TWE+"540/japan_yam1.jpg"],
+  ["Pat","Alberta Springs 10","alberta-distillers","https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcTHrFGWqox8904YdYv02z44-sGElobKjkire0DoFQc9DA5603mgrw"],
+  ["Pat","Glenrothes 1994","glenrothes","https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcQmwIy7gPndSWYUknJXBXNswmYHX88bU8_iG6Zh8NMBJjGVINLG"],
+  ["Pat","Johnnie Walker Platinum","johnnie-walker","http://www.onlinecava.com/images/products/1515.jpg"],
+  ["Pat","Jura Prophecy","jura","http://www.shop4whisky.com/images/jura-prophecy-20cl.jpg"],
+  ["Pat","Nikka Tsuru 17","nikka-miyagikyo","http://www.nikka.com/eng/img/eng_pc_detail_btl_tsuru17.png"],
+  ["Pat","Bruichladdich Octomore 6.1","bruichladdich","http://www.lcbo.com/content/dam/lcbo/products/387407.jpg/jcr:content/renditions/cq5dam.web.1280.1280.jpeg"],
+  ["Pat","Aberfeldy 21","aberfeldy",TWE+"900/abfob.21yo.jpg"],
+  ["Pat","Laphroaig 18","laphroaig",TWE+"900/lrgob.18yo.jpg"],
+  ["Pat","Highland Park Dark Origins","highland-park",TWE+"540/hlpob.non8.jpg"],
+  ["Pat","Dalmore Cigar Malt","dalmore",TWE+"540/dlmob.non10.jpg"],
+  ["Pat","Kilchoman Sauternes Cask","kilchoman","https://www.thewhiskybarrel.com/media/catalog/product/cache/1/image/794x/040ec09b1e35df139433887a97daa66f/k/i/kilchoman-sauternes-cask-2016.jpg"],
+  ["Pat","Macallan 15 Fine Oak","macallan",TWE+"540/macob.15yo.jpg"],
+  ["Pat","Deanston 12","deanston",""],
+  ["Pat","Glenkinchie 12","glenkinchie",TWE+"900/gkcob.12yov1.jpg"],
+  ["Ross","Glenmorangie Nectar D'Or","glenmorangie","http://mymaltwhiskys.files.wordpress.com/2011/10/glenmorangie-nectar-dor.jpg"],
+  ["Ross","Auchentoshan Three Wood","auchentoshan","https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcRrZ6NtuP4SmEyD3ubFZ0sBu7phlL3PX2yCuiLuORpGUmOcFsLjAA"],
+  ["Ross","Benromach 10","benromach","http://www.kosherwineuk.com/images/Benromach_10_Years_Old_43.jpg"],
+  ["Ross","Aberlour 16","aberlour","http://img.thewhiskyexchange.com/270/ablob.16yo.jpg"],
+  ["Ross","Ardbeg Ardbog","ardbeg","http://www.whiskyintelligence.com/wp-content/uploads/2013/05/aa1.jpeg.jpg"],
+  ["Ross","Oban 14","oban",TWE+"540/obnob.14yo.jpg"],
+  ["Ross","Cragganmore Distillers Edition","cragganmore",TWE+"900/cgmob.1993v1.jpg"],
+  ["Ross","Springbank 15","springbank",TWE+"540/sprob.15yo.jpg"],
+  ["Ross","Glenlivet Nàdurra","glenlivet",TWE+"900/glvob.non10.jpg"],
+  ["Ross","Berry Bros & Rudd Perspective Series No. 1, 21 yr","berry-bros",""],
+  ["Ross","Glen Scotia Double Cask","glen-scotia","https://cdn2.masterofmalt.com/whiskies/p-2813/glen-scotia/glen-scotia-double-cask-whisky.jpg"],
+  ["Ross","Hazelburn 9 Barolo Cask","springbank","http://www.celticwhiskeyshop.com/image/Scotch%20Whisky/Hazelburn-9-Year-old-barolo.jpg"],
+  ["Ross","Highland Park 18","highland-park",TWE+"900/hlpob.18yov2.jpg"],
+  ["Group","Macallan Edition No. 2","macallan",TWE+"900/macob.non75.jpg"]
+];
+
+/* ---------- Helpers ---------- */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const safeUrl = (u) => (/^https?:\/\/\S+$/i.test(u || "") ? u : "");
+const colorOf = (r) => REGIONS[r] || REGIONS.Other;
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+const fmtDate = (s) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s || "")) return "";
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
+};
+const slug = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+let toastTimer;
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3200);
+}
+function setStatus(kind, text) {
+  const s = $("#status"); s.className = "status " + kind; $("#statusText").textContent = text;
+}
+
+/* ---------- State ---------- */
+const distilleries = new Map();
+let bottles = [];
+let loaded = { b: false, d: false };
+const filters = { q: "", host: "", region: "", sort: "date" };
+let editingId = null;
+
+const distOf = (b) => distilleries.get(b.distilleryId) || { name: b.distilleryId || "Unknown", region: "Other", country: "" };
+
+/* ---------- Seed once ---------- */
+async function ensureSeed() {
+  const metaRef = doc(db, "meta", "seed");
+  const snap = await getDoc(metaRef);
+  if (snap.exists()) return;
+  const batch = writeBatch(db);
+  for (const [id, name, region, country, lat, lng, address] of SEED_DISTILLERIES) {
+    batch.set(doc(db, "distilleries", id), { name, region, country, lat, lng, address });
+  }
+  SEED_BOTTLES.forEach(([host, whisky, distilleryId, image], i) => {
+    batch.set(doc(db, "bottles", "seed-" + String(i + 1).padStart(3, "0")), {
+      host, whisky, distilleryId, image, date: "", seq: i + 1, seeded: true, addedAt: serverTimestamp()
+    });
+  });
+  batch.set(metaRef, { seeded: true, at: serverTimestamp() });
+  await batch.commit();
+  toast("Loaded the club's first 56 bottles");
+}
+
+/* ---------- Map ---------- */
+const map = L.map("map", { scrollWheelZoom: false, worldCopyJump: true });
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+  maxZoom: 18, subdomains: "abcd",
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+}).addTo(map);
+map.fitBounds(SCOTLAND);
+map.on("click", () => map.scrollWheelZoom.enable());
+const markers = L.layerGroup().addTo(map);
+let mapView = "scot";
+
+function setView(v) {
+  mapView = v;
+  $("#viewScot").setAttribute("aria-pressed", v === "scot");
+  $("#viewWorld").setAttribute("aria-pressed", v === "world");
+  if (v === "scot") { map.fitBounds(SCOTLAND); return; }
+  const pts = [];
+  markers.eachLayer((m) => pts.push(m.getLatLng()));
+  if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [30, 30] });
+  else map.setView([30, 0], 2);
+}
+$("#viewScot").onclick = () => setView("scot");
+$("#viewWorld").onclick = () => setView("world");
+
+function renderMap(list) {
+  markers.clearLayers();
+  const groups = new Map();
+  for (const b of list) {
+    if (!groups.has(b.distilleryId)) groups.set(b.distilleryId, []);
+    groups.get(b.distilleryId).push(b);
+  }
+  for (const [id, bs] of groups) {
+    const d = distilleries.get(id);
+    if (!d || typeof d.lat !== "number" || typeof d.lng !== "number") continue;
+    const n = bs.length;
+    const items = bs
+      .slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""))
+      .map((b) => `<li>${esc(b.whisky)} <span style="color:#74685a">— ${esc(b.host)}${b.date ? ", " + esc(fmtDate(b.date)) : ""}</span></li>`)
+      .join("");
+    const html = `<div class="pop"><h3>${esc(d.name)}</h3><div class="sub">${esc(d.region)}${d.address ? " · " + esc(d.address) : ""}</div>
+      <strong>${n} bottle${n > 1 ? "s" : ""}</strong><ul>${items}</ul></div>`;
+    L.circleMarker([d.lat, d.lng], {
+      radius: 6 + Math.min(n, 6) * 1.6, color: "#fff", weight: 1.5,
+      fillColor: colorOf(d.region), fillOpacity: 0.92
+    }).bindPopup(html, { maxWidth: 280 }).bindTooltip(`${d.name} (${n})`).addTo(markers);
+  }
+}
+
+/* ---------- Dashboard ---------- */
+function bars(el, entries, colorFn) {
+  const max = Math.max(1, ...entries.map((e) => e[1]));
+  el.innerHTML = entries.length ? entries.map(([label, n]) => `
+    <div class="bar"><span>${esc(label)}</span>
+      <span class="track" role="img" aria-label="${esc(label)}: ${n}"><span class="fill" style="width:${(n / max) * 100}%;${colorFn ? "background:" + colorFn(label) : ""}"></span></span>
+      <span class="v">${n}</span></div>`).join("") : `<p class="empty">Nothing yet.</p>`;
+}
+function countBy(list, fn) {
+  const m = new Map();
+  for (const x of list) { const k = fn(x); m.set(k, (m.get(k) || 0) + 1); }
+  return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+function renderStats(list) {
+  const ds = new Set(list.map((b) => b.distilleryId));
+  $("#sBottles").textContent = list.length;
+  $("#sDist").textContent = ds.size;
+  $("#sRegions").textContent = new Set(list.map((b) => distOf(b).region)).size;
+  $("#sCountries").textContent = new Set(list.map((b) => distOf(b).country).filter(Boolean)).size;
+}
+
+function renderLegend() {
+  const used = new Set(bottles.map((b) => distOf(b).region));
+  const names = Object.keys(REGIONS).filter((r) => used.has(r));
+  $("#legend").innerHTML = names.map((r) =>
+    `<button type="button" class="chip" data-region="${esc(r)}" aria-pressed="${filters.region === r}"><span class="sw" style="background:${colorOf(r)}"></span>${esc(r)}</button>`
+  ).join("");
+}
+$("#legend").addEventListener("click", (e) => {
+  const c = e.target.closest(".chip"); if (!c) return;
+  filters.region = filters.region === c.dataset.region ? "" : c.dataset.region;
+  $("#fRegion").value = filters.region;
+  renderAll();
+});
+
+function renderLatest() {
+  const dated = bottles.filter((b) => b.date).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+  $("#latest").innerHTML = dated.length
+    ? dated.map((b) => `<li><span><span class="w">${esc(b.whisky)}</span><br><span class="muted">${esc(b.host)} · ${esc(distOf(b).name)}</span></span><span class="m">${esc(fmtDate(b.date))}</span></li>`).join("")
+    : `<li class="empty">Bottles added with a date will show up here.</li>`;
+}
+
+/* ---------- List ---------- */
+function filtered() {
+  const q = filters.q.trim().toLowerCase();
+  return bottles.filter((b) => {
+    const d = distOf(b);
+    if (filters.host && b.host !== filters.host) return false;
+    if (filters.region && d.region !== filters.region) return false;
+    if (q && !`${b.whisky} ${d.name} ${b.host} ${d.region}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+function sorted(list) {
+  const s = filters.sort, by = (f) => (a, b) => f(a).localeCompare(f(b));
+  const l = list.slice();
+  if (s === "name") l.sort(by((b) => b.whisky));
+  else if (s === "dist") l.sort((a, b) => distOf(a).name.localeCompare(distOf(b).name) || a.whisky.localeCompare(b.whisky));
+  else if (s === "host") l.sort((a, b) => a.host.localeCompare(b.host) || a.whisky.localeCompare(b.whisky));
+  else if (s === "region") l.sort((a, b) => distOf(a).region.localeCompare(distOf(b).region) || a.whisky.localeCompare(b.whisky));
+  else l.sort((a, b) => {
+    if (a.date && b.date) return b.date.localeCompare(a.date);
+    if (a.date) return -1; if (b.date) return 1;
+    const ta = a.addedAt?.toMillis?.() ?? 0, tb = b.addedAt?.toMillis?.() ?? 0;
+    if (!a.seeded || !b.seeded) return tb - ta;
+    return (a.seq || 0) - (b.seq || 0);
+  });
+  return l;
+}
+function renderList(list) {
+  const rows = sorted(list);
+  $("#rows").innerHTML = rows.map((b) => {
+    const d = distOf(b), img = safeUrl(b.image);
+    const thumb = img
+      ? `<img class="thumb" src="${esc(img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<span class=&quot;thumb ph&quot; aria-hidden=&quot;true&quot;>🥃</span>'">`
+      : `<span class="thumb ph" aria-hidden="true">🥃</span>`;
+    return `<tr data-id="${esc(b.id)}">
+      <td><span class="wh">${thumb}${esc(b.whisky)}</span></td>
+      <td class="c-dist">${esc(d.name)}</td>
+      <td class="c-region"><span class="rg"><span class="sw" style="background:${colorOf(d.region)}"></span>${esc(d.region)}</span></td>
+      <td class="c-host">${esc(b.host)}</td>
+      <td class="c-date">${b.date ? esc(fmtDate(b.date)) : '<span class="muted">—</span>'}</td>
+      <td class="c-act"><button type="button" class="edit" data-id="${esc(b.id)}" aria-label="Edit ${esc(b.whisky)}">Edit</button></td></tr>`;
+  }).join("");
+  $("#noRows").hidden = rows.length > 0;
+  $("#count").textContent = rows.length === bottles.length ? `${rows.length} bottles` : `${rows.length} of ${bottles.length} bottles`;
+}
+$("#rows").addEventListener("click", (e) => {
+  const tr = e.target.closest("tr[data-id]"); if (!tr) return;
+  const b = bottles.find((x) => x.id === tr.dataset.id); if (b) openForm(b);
+});
+
+function renderAll() {
+  if (!loaded.b || !loaded.d) return;
+  const list = filtered();
+  renderStats(list);
+  renderMap(list);
+  renderLegend();
+  bars($("#byHost"), countBy(list, (b) => b.host));
+  bars($("#byRegion"), countBy(list, (b) => distOf(b).region), colorOf);
+  renderLatest();
+  renderList(list);
+}
+
+/* ---------- Filters ---------- */
+for (const h of HOSTS) { $("#fHost").add(new Option(h, h)); $("#iHost").add(new Option(h, h)); }
+for (const r of Object.keys(REGIONS)) { $("#fRegion").add(new Option(r, r)); $("#nRegion").add(new Option(r, r)); }
+$("#q").addEventListener("input", (e) => { filters.q = e.target.value; renderAll(); });
+$("#fHost").addEventListener("change", (e) => { filters.host = e.target.value; renderAll(); });
+$("#fRegion").addEventListener("change", (e) => { filters.region = e.target.value; renderAll(); });
+$("#sort").addEventListener("change", (e) => { filters.sort = e.target.value; renderAll(); });
+
+/* ---------- CSV export ---------- */
+$("#csvBtn").addEventListener("click", () => {
+  const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines = [["Bottle", "Distillery", "Region", "Country", "Brought by", "Date tasted", "Image"].map(cell).join(",")];
+  for (const b of sorted(filtered())) {
+    const d = distOf(b);
+    lines.push([b.whisky, d.name, d.region, d.country, b.host, b.date, b.image].map(cell).join(","));
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
+  a.download = `scotch-club-${todayStr()}.csv`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+/* ---------- Add / edit form ---------- */
+const dlg = $("#dlg");
+let pickMap = null, pickMarker = null, pickLatLng = null;
+
+function fillDistSelect(selected) {
+  const sel = $("#iDist"); sel.innerHTML = "";
+  sel.add(new Option("Choose a distillery…", ""));
+  [...distilleries.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name))
+    .forEach(([id, d]) => sel.add(new Option(`${d.name} — ${d.region}`, id)));
+  sel.add(new Option("➕ New distillery…", "__new"));
+  sel.value = selected || "";
+}
+function setPin(latlng, zoom) {
+  pickLatLng = latlng;
+  if (!pickMarker) pickMarker = L.marker(latlng, { draggable: true }).addTo(pickMap).on("dragend", (e) => (pickLatLng = e.target.getLatLng()));
+  else pickMarker.setLatLng(latlng);
+  if (zoom) pickMap.setView(latlng, zoom);
+  $("#nHint").textContent = `Pin set at ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)} — drag it to adjust.`;
+}
+function showNewDist(show) {
+  $("#newDist").hidden = !show;
+  if (!show) return;
+  if (!pickMap) {
+    pickMap = L.map("pickMap").setView([56.9, -4.2], 6);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", { maxZoom: 18, subdomains: "abcd", attribution: "© OpenStreetMap © CARTO" }).addTo(pickMap);
+    pickMap.on("click", (e) => setPin(e.latlng));
+  }
+  setTimeout(() => pickMap.invalidateSize(), 50);
+  $("#nName").focus();
+}
+$("#iDist").addEventListener("change", (e) => showNewDist(e.target.value === "__new"));
+
+async function findPlace() {
+  const q = $("#nSearch").value.trim() || ($("#nName").value.trim() ? $("#nName").value.trim() + " distillery" : "");
+  if (!q) { $("#nHint").textContent = "Type a place or the distillery name first."; return; }
+  $("#nHint").textContent = "Searching…";
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`, { headers: { "Accept-Language": "en" } });
+    const res = await r.json();
+    if (!res.length) { $("#nHint").textContent = "Couldn't find that — try a nearby town, or click the map."; return; }
+    setPin(L.latLng(+res[0].lat, +res[0].lon), 12);
+  } catch {
+    $("#nHint").textContent = "Search isn't available right now — click the map to drop the pin.";
+  }
+}
+$("#nFind").addEventListener("click", findPlace);
+$("#nSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); findPlace(); } });
+
+function openForm(b) {
+  editingId = b ? b.id : null;
+  $("#dlgTitle").textContent = b ? "Edit bottle" : "Add a bottle";
+  $("#saveBtn").textContent = b ? "Save changes" : "Save bottle";
+  $("#delBtn").hidden = !b;
+  $("#iHost").value = b ? b.host : (filters.host || "Andrew");
+  $("#iWhisky").value = b ? b.whisky : "";
+  $("#iDate").value = b ? (b.date || "") : todayStr();
+  $("#iImage").value = b ? (b.image || "") : "";
+  fillDistSelect(b ? b.distilleryId : "");
+  $("#nName").value = ""; $("#nSearch").value = ""; $("#nCountry").value = "Scotland"; $("#nRegion").value = "Speyside";
+  pickLatLng = null; if (pickMarker) { pickMarker.remove(); pickMarker = null; }
+  $("#nHint").textContent = "Search, or click the map to drop the pin.";
+  showNewDist(false);
+  $("#formErr").textContent = "";
+  dlg.showModal();
+  $("#iWhisky").focus();
+}
+$("#addBtn").addEventListener("click", () => openForm(null));
+$("#cancelBtn").addEventListener("click", () => dlg.close());
+
+$("#form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const err = (m) => { $("#formErr").textContent = m; };
+  const whisky = $("#iWhisky").value.trim();
+  const host = $("#iHost").value;
+  const date = $("#iDate").value || "";
+  const image = $("#iImage").value.trim();
+  let distilleryId = $("#iDist").value;
+  if (!whisky) return err("Give the bottle a name.");
+  if (!distilleryId) return err("Choose a distillery (or add a new one).");
+  if (image && !safeUrl(image)) return err("The image link should start with http:// or https://");
+
+  $("#saveBtn").disabled = true;
+  try {
+    if (distilleryId === "__new") {
+      const name = $("#nName").value.trim();
+      if (!name) { $("#saveBtn").disabled = false; return err("Name the new distillery."); }
+      if (!pickLatLng) { $("#saveBtn").disabled = false; return err("Place the distillery on the map (search or click)."); }
+      const id = slug(name) || "distillery-" + Date.now();
+      if (!distilleries.has(id)) {
+        await setDoc(doc(db, "distilleries", id), {
+          name, region: $("#nRegion").value, country: $("#nCountry").value.trim() || "Scotland",
+          lat: +pickLatLng.lat.toFixed(5), lng: +pickLatLng.lng.toFixed(5), address: $("#nSearch").value.trim()
+        });
+      }
+      distilleryId = id;
+    }
+    const data = { host, whisky, distilleryId, date, image, updatedAt: serverTimestamp() };
+    if (editingId) await updateDoc(doc(db, "bottles", editingId), data);
+    else await addDoc(collection(db, "bottles"), { ...data, addedAt: serverTimestamp() });
+    dlg.close();
+    toast(editingId ? "Bottle updated" : `Added ${whisky} 🥃`);
+  } catch (ex) {
+    console.error(ex);
+    err(ex.code === "permission-denied" ? "The database refused the save — check the Firestore rules." : "Couldn't save — check your connection and try again.");
+  } finally {
+    $("#saveBtn").disabled = false;
+  }
+});
+
+$("#delBtn").addEventListener("click", async () => {
+  const b = bottles.find((x) => x.id === editingId); if (!b) return;
+  if (!confirm(`Delete "${b.whisky}" from the club log? This can't be undone.`)) return;
+  try { await deleteDoc(doc(db, "bottles", b.id)); dlg.close(); toast("Bottle deleted"); }
+  catch (ex) { console.error(ex); $("#formErr").textContent = "Couldn't delete — try again."; }
+});
+
+/* ---------- Live data ---------- */
+function onErr(ex) {
+  console.error(ex);
+  setStatus("err", ex.code === "permission-denied" ? "Database locked — check rules" : "Offline");
+}
+onSnapshot(collection(db, "distilleries"), (snap) => {
+  distilleries.clear();
+  snap.forEach((d) => distilleries.set(d.id, d.data()));
+  loaded.d = true; setStatus("live", "Live"); renderAll();
+}, onErr);
+onSnapshot(collection(db, "bottles"), (snap) => {
+  bottles = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  loaded.b = true; setStatus("live", "Live"); renderAll();
+}, onErr);
+
+ensureSeed().catch((ex) => { console.error(ex); if (ex.code === "permission-denied") setStatus("err", "Database locked — check rules"); });
+</script>
+</body>
+</html>
