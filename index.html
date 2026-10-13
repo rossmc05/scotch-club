@@ -89,18 +89,24 @@ h2{font-family:var(--serif);font-size:26px;line-height:1.2}
 .filters input::placeholder,.field input::placeholder{color:#7e9387}
 .count{font-size:13px;color:var(--muted);margin:10px 0 4px}
 .ledger{list-style:none;margin:0;padding:0}
-.entry{display:grid;grid-template-columns:44px minmax(0,1fr) 130px 70px 100px;gap:14px;align-items:center;padding:12px 6px;border-top:1px solid var(--line);cursor:pointer}
+.entry,.ledger-head{display:grid;grid-template-columns:44px minmax(0,1.25fr) minmax(0,1fr) 64px 96px 70px;gap:14px;align-items:center}
+.entry{padding:12px 6px;border-top:1px solid var(--line);cursor:pointer}
+.ledger-head{padding:6px 6px 8px;font-size:12px;color:var(--muted)}
+.ledger-head .r{text-align:right}
 .entry:last-child{border-bottom:1px solid var(--line)}
 .entry:hover{background:var(--surface)}
 .entry:focus-visible{outline-offset:-2px}
 .bottle{min-width:0}
 .bottle .n{font-weight:500;font-size:15px;display:block;overflow:hidden;text-overflow:ellipsis}
-.bottle .d{color:var(--muted);font-size:13px;display:block}
+.bottle .d{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:7px;min-width:0}
+.bottle .d .sw{flex:none}
 .thumb{width:44px;height:44px;border-radius:3px;object-fit:contain;background:#e9e1cd;display:block}
 .mono{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-family:var(--serif);font-size:19px;color:var(--ink);background:var(--raise);border:1.5px solid}
 .rg{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}
 .who{font-size:13px}
 .when{font-size:13px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.pairing{font-family:var(--serif);font-style:italic;font-size:14px;line-height:1.35;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.price{font-family:var(--serif);font-size:15px;text-align:right;font-variant-numeric:tabular-nums;color:var(--brass)}
 .none{color:var(--muted);padding:20px 0}
 
 /* Sidebar */
@@ -182,12 +188,14 @@ details[open] summary{margin-bottom:10px}
   .cartouche{position:relative;left:auto;bottom:auto;width:auto;margin:-28px 16px 0;padding:22px 20px 18px;background:var(--base)}
   .filters{grid-template-columns:1fr 1fr}
   .filters input{grid-column:1/-1}
-  .entry{grid-template-columns:44px minmax(0,1fr) auto;gap:4px 12px;padding:12px 2px}
-  .entry .thumbcell{grid-row:1/3}
-  .entry .rg{grid-column:2;grid-row:2}
-  .entry .who{grid-column:3;grid-row:1;text-align:right}
-  .entry .when{grid-column:3;grid-row:2}
-  .bottle .d{display:none}
+  .ledger-head{display:none}
+  .entry{grid-template-columns:44px minmax(0,1fr) auto;gap:2px 12px;padding:12px 2px;align-items:start}
+  .entry .thumbcell{grid-column:1;grid-row:1/4}
+  .entry .bottle{grid-column:2;grid-row:1/3}
+  .entry .price{grid-column:3;grid-row:1}
+  .entry .who{grid-column:3;grid-row:2;text-align:right}
+  .entry .pairing{grid-column:2;grid-row:3;font-size:13px;margin-top:2px}
+  .entry .when{grid-column:3;grid-row:3}
   .pair{grid-template-columns:1fr}
 }
 </style>
@@ -220,7 +228,7 @@ details[open] summary{margin-bottom:10px}
       <button type="button" class="linkbtn" id="csvBtn">Download as CSV</button>
     </div>
     <div class="filters">
-      <input type="search" id="q" placeholder="Search bottles or distilleries" aria-label="Search bottles or distilleries">
+      <input type="search" id="q" placeholder="Search bottles, distilleries or pairings" aria-label="Search bottles, distilleries or pairings">
       <select id="fHost" aria-label="Brought by"><option value="">Everyone</option></select>
       <select id="fRegion" aria-label="Region"><option value="">All regions</option></select>
       <select id="sort" aria-label="Sort by">
@@ -229,9 +237,11 @@ details[open] summary{margin-bottom:10px}
         <option value="dist">Distillery A to Z</option>
         <option value="host">Member</option>
         <option value="region">Region</option>
+        <option value="price">Price, highest first</option>
       </select>
     </div>
     <p class="count" id="count" aria-live="polite"></p>
+    <div class="ledger-head" aria-hidden="true"><span></span><span>Bottle</span><span>Dinner pairing</span><span>Brought by</span><span class="r">Tasted</span><span class="r">Price</span></div>
     <ul class="ledger" id="rows"></ul>
     <p class="none" id="noRows" hidden>No bottles match. Clear the search or filters to see the full ledger.</p>
   </section>
@@ -240,6 +250,10 @@ details[open] summary{margin-bottom:10px}
     <section aria-labelledby="hostTitle">
       <h2 id="hostTitle">Who's poured what</h2>
       <div class="rows" id="byHost"></div>
+    </section>
+    <section aria-labelledby="valueTitle">
+      <h2 id="valueTitle">Value poured</h2>
+      <div class="rows" id="byValue"></div>
     </section>
     <section aria-labelledby="regionTitle">
       <h2 id="regionTitle">By region</h2>
@@ -301,6 +315,16 @@ details[open] summary{margin-bottom:10px}
       </div>
       <div id="pickMap" aria-label="Click to place the distillery"></div>
     </fieldset>
+    <div class="field">
+      <label for="iPairing">Dinner pairing</label>
+      <input type="text" id="iPairing" maxlength="200" placeholder="Smoked salmon on rye" autocomplete="off">
+    </div>
+    <div class="pair">
+      <div class="field">
+        <label for="iPrice">Price (CAD)</label>
+        <input type="number" id="iPrice" min="0" max="100000" step="0.01" inputmode="decimal" placeholder="Optional">
+      </div>
+    </div>
     <div class="field">
       <span class="label" id="phLabel">Photo</span>
       <div class="photo" role="group" aria-labelledby="phLabel">
@@ -472,10 +496,82 @@ const SEED_BOTTLES = [
 ];
 
 
+/* ---------- One-time price import (Oct 2026 research; source details are stored, not shown) ---------- */
+// bottle, brought by, price CAD, basis, source, link, note
+const PRICE_IMPORT = [
+  ["Fettercairn 16", "Ross", 150.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/fettercairn-16-year-old", ""],
+  ["The Midgie", "Matt", 79.99, "Calgary retail", "BSW", "https://www.bswliquor.com/products/ardnamurchan-the-midgie", ""],
+  ["Daftmill 2011", "Ross", 269.99, "Calgary retail", "KWM", "https://kensingtonwinemarket.com/product/864729/daftmill-2011-kwm-single-cask-101", "Assumed the KWM single cask #101; if it was the 2011 Summer Batch release it is $155 at BSW"],
+  ["Smokiverse", "Matt", 113.2, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/233-auction/899280-ardbeg-smokiverse/", "Median of recent hammer prices £60; 2022 Ardbeg Day release"],
+  ["KWM 30th Anniversary Blend", "Ross", 269.99, "Calgary retail", "KWM", "https://kensingtonwinemarket.com/product/865633", "KWM exclusive"],
+  ["Hazelburn 12", "Ross", 175.0, "Calgary retail (listed, out of stock)", "BSW", "https://www.bswliquor.com/products/springbank-hazelburn-sherry-12-year-old", "Springbank releases sell out fast; list price shown"],
+  ["No Name No 3", "Ross", 179.24, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/233-auction/901638-compass-box-no-name-no3/", "Median of recent hammer prices £95"],
+  ["Deveron 18", "Pat", 150.0, "Calgary retail (listed, out of stock)", "BSW", "https://www.bswliquor.com/products/deveron-18-year-old-1", ""],
+  ["Glenkinchie 12", "Pat", 94.99, "Calgary retail", "BSW", "https://www.bswliquor.com/products/glenkinchie-12-year-old-1", ""],
+  ["Deanston 12", "Pat", 79.99, "Calgary retail", "BSW", "https://www.bswliquor.com/products/deanston-12-year-old", ""],
+  ["anCnoc 24", "Matt", 250.0, "Calgary retail (listed, out of stock)", "BSW", "https://www.bswliquor.com/products/ancnoc-24-year-old-1", "Auction ~£150 ($283) in 2026"],
+  ["Laphroaig Lore", "Andrew", 195.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/laphroaig-lore-1", "KWM has it at $234.99"],
+  ["Clynelish", "Matt", 107.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/clynelish-14-year-old-1", "Priced as Clynelish 14 (per Pat's photo)"],
+  ["Winter’s Frost House Stark", "Pat", 94.34, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/205-auction/755216-dalwhinnie-game-of-thrones-house-stark/", "Median of recent hammer prices £50; Few sales since 2024"],
+  ["2007 Signatory Vintage", "Ross", 122.64, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/225-auction/861181-glenlivet-2007-13-year-old-signatory/", "Median of recent hammer prices £65; Same vintage and bottler; exact cask unknown. Calgary nearest is Signatory Glenlivet 2006 at $215 (BSW)"],
+  ["Inchgower 1997", "Matt", 264.14, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/227-auction/869826-inchgower-1997-27-year-old-thompson-bros/", "Median of recent hammer prices £140; Bottler unknown; 1997 Inchgowers range £90-150"],
+  ["Dalmore Cigar Malt", "Pat", 180.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/the-dalmore-cigar-malt-reserve", "Now sold as Cigar Malt Reserve"],
+  ["Highland Park 18", "Ross", 300.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/highland-park-18-year-old", ""],
+  ["No Name No 2", "Matt", 188.67, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/191-auction/675359-compass-box-no-name-no2/", "Median of recent hammer prices £100; Check: tasted Mar 2018 but No.2 was released later, so this may be the original No Name (~£150 / $283 at auction)"],
+  ["Linkwood 15", "Andrew", 150.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/g-m-distillery-label-linkwood-15-yo", "Gordon & MacPhail bottling"],
+  ["Hazelburn 9 Barolo Cask", "Ross", 300.0, "Calgary retail (listed, out of stock)", "BSW", "https://www.bswliquor.com/products/springbank-hazelburn-9yr-barolo-57-9", "Auction ~£95 ($179) in 2026"],
+  ["Glenrothes 2005 (Gordon & MacPhail)", "Matt", 89.99, "Calgary retail - closest current equivalent", "BSW", "https://www.bswliquor.com/products/g-m-discovery-glenrothes-1", "G&M 2005 cask strength not found anywhere; closest is G&M Discovery Glenrothes 11"],
+  ["Kilchoman Sauternes Cask", "Pat", 132.07, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/231-auction/884433-kilchoman-sauternes-cask-2016-release/", "Median of recent hammer prices £70; 2016 release"],
+  ["Ardbeg Kelpie", "Andrew", 400.0, "Calgary retail (listed, out of stock)", "BSW", "https://www.bswliquor.com/products/ardbeg-kelpi-46", "Collector pricing; Auction £160 ($302), Jan 2024"],
+  ["Glen Scotia Double Cask", "Ross", 67.99, "Calgary retail", "BSW", "https://www.bswliquor.com/products/glen-scotia-double-cask", ""],
+  ["Macallan Edition No. 2", "Group", 320.74, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/233-auction/902960-macallan-edition-no2/", "Median of recent hammer prices £170"],
+  ["Glen Garioch 1994", "Matt", 169.8, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/218-auction/820553-glen-garioch-1994-vintage/", "Median of recent hammer prices £90; Official 1994 Vintage"],
+  ["Lagavulin 16", "Andrew", 140.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/lagavulin-16-year-old-1", ""],
+  ["Springbank 10", "Andrew", 110.0, "Calgary retail (listed, out of stock)", "BSW", "https://www.bswliquor.com/products/springbank-10-year-old", ""],
+  ["Old Pulteney 17", "Andrew", 169.8, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/222-auction/841470-old-pulteney-17-year-old/", "Median of recent hammer prices £90; Discontinued; current OP 18 is $145 at BSW"],
+  ["Balvenie 14 Caribbean Cask", "Andrew", 135.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/balvenie-14-year-old-caribbean-cask-1", ""],
+  ["Longrow Red", "Andrew", 179.24, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/233-auction/899540-longrow-11-year-old-red-tawny-port/", "Median of recent hammer prices £95; Priced as 11yo Red Port; Longrow Red changes cask each release"],
+  ["Ledaig 10", "Andrew", 64.99, "Calgary retail", "BSW", "https://www.bswliquor.com/products/ledaig-10-year-old-1", ""],
+  ["Talisker Distillers Edition 1999", "Andrew", 188.67, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/222-auction/842828-talisker-1999-distillers-edition/", "Median of recent hammer prices £100; Current Distillers Edition is $135 at BSW"],
+  ["Glenfiddich 15 Solera", "Andrew", 84.99, "Calgary retail", "BSW", "https://www.bswliquor.com/products/glenfiddich-15-year-old-solera", ""],
+  ["Laphroaig 15", "Andrew", 165.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/laphroaig-15-yr-old", ""],
+  ["Springbank 13 Green", "Andrew", 350.0, "Calgary retail (listed, out of stock)", "BSW", "https://www.bswliquor.com/products/springbank-13-yr-old-green", "Auction ~£180 ($340) in 2026"],
+  ["Caol Ila 9 (Adelphi, 2001)", "Matt", 122.64, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/148-auction/376112-caol-ila-2001-9-year-old-adelphi/", "Median of recent hammer prices £65; Only two sales (2020, 2025)"],
+  ["Glenmorangie 18", "Matt", 150.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/glenmorangie-18-year-old-extremely-rare-1", "Now branded \"The Infinita\""],
+  ["Bowmore 10 Tempest", "Matt", 132.07, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/233-auction/900631-bowmore-tempest-10-year-old-small-batch-release-1/", "Median of recent hammer prices £70; Batch unknown; batches 1-3 all £65-85"],
+  ["Craigellachie 13", "Matt", 59.99, "Calgary retail", "BSW", "https://www.bswliquor.com/products/craigellachie-13-year-old", ""],
+  ["Glengoyne 18", "Matt", 195.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/glengoyne-18-year-old-700ml", "700ml"],
+  ["Bunnahabhain Ceòbanach", "Matt", 125.0, "Calgary retail (listed, out of stock)", "BSW", "https://www.bswliquor.com/products/bunnahabhain-ceobanach", ""],
+  ["Glenfarclas 17", "Matt", 160.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/glenfarclas-17-year-old-1", ""],
+  ["GlenDronach 12", "Matt", 79.99, "Calgary retail", "BSW", "https://www.bswliquor.com/products/glendronach-12-year-old-original-2", ""],
+  ["Yamazaki 12", "Pat", 248.12, "UK retail (GBP converted)", "Master of Malt", "https://www.masterofmalt.com/whiskies/yamazaki-japanese/yamazaki-12-year-old-whisky/", "Not stocked in Calgary; £131.51 for 70cl"],
+  ["Alberta Springs 10", "Pat", 29.99, "Calgary retail", "BSW", "https://www.bswliquor.com/products/alberta-springs-whisky", ""],
+  ["Glenrothes 1994", "Pat", 122.64, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/232-auction/897612-glenrothes-1994/", "Median of recent hammer prices £65"],
+  ["Johnnie Walker Platinum", "Pat", 150.0, "Calgary retail - closest current equivalent", "BSW", "https://www.bswliquor.com/products/johnnie-walker-platinum-label-18-year-old", "Platinum Label was renamed Johnnie Walker 18"],
+  ["Jura Prophecy", "Pat", 75.47, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/233-auction/899928-jura-prophecy/", "Median of recent hammer prices £40"],
+  ["Nikka Tsuru 17", "Pat", 396.21, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/203-auction/742927-nikka-tsuru-17-year-old/", "Median of recent hammer prices £210; No sales since May 2024"],
+  ["Bruichladdich Octomore 6.1", "Pat", 226.4, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/229-auction/881809-octomore-061-scottish-barley-5-year-old/", "Median of recent hammer prices £120"],
+  ["Aberfeldy 21", "Pat", 119.99, "Calgary retail", "BSW", "https://www.bswliquor.com/products/aberfeldy-21-year-old-1", ""],
+  ["Laphroaig 18", "Pat", 188.67, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/233-auction/901322-laphroaig-18-year-old/", "Median of recent hammer prices £100; Discontinued 2015"],
+  ["Highland Park Dark Origins", "Pat", 122.64, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/233-auction/902340-highland-park-dark-origins/", "Median of recent hammer prices £65"],
+  ["Macallan 15 Fine Oak", "Pat", 179.24, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/228-auction/876443-macallan-15-year-old-fine-oak/", "Median of recent hammer prices £95; Current 15 Double Cask is $270 at BSW"],
+  ["Glenmorangie Nectar D'Or", "Ross", 115.0, "Calgary retail - closest current equivalent", "BSW", "https://www.bswliquor.com/products/glenmorangie-nectar-dor-16yo", "Now sold as The Nectar 16 Year Old"],
+  ["Auchentoshan Three Wood", "Ross", 62.99, "Calgary retail", "BSW", "https://www.bswliquor.com/products/auchentoshan-three-wood-1", ""],
+  ["Benromach 10", "Ross", 64.99, "Calgary retail", "BSW", "https://www.bswliquor.com/products/benromach-10-year-old-1", ""],
+  ["Aberlour 16", "Ross", 135.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/aberlour-16-year-old", ""],
+  ["Ardbeg Ardbog", "Ross", 245.27, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/233-auction/901279-ardbeg-ardbog-feis-ile-2013/", "Median of recent hammer prices £130"],
+  ["Oban 14", "Ross", 130.0, "Calgary retail", "BSW", "https://www.bswliquor.com/products/oban-14-year-old-1", ""],
+  ["Cragganmore Distillers Edition", "Ross", 94.24, "UK retail (GBP converted)", "Master of Malt", "https://www.masterofmalt.com/whiskies/cragganmore/cragganmore-distillers-edition-whisky/", "Not stocked in Calgary right now; £49.95 for 70cl"],
+  ["Springbank 15", "Ross", 150.0, "Calgary retail (listed, out of stock)", "BSW", "https://www.bswliquor.com/products/springbank-15-year-old-1", ""],
+  ["Glenlivet Nàdurra", "Ross", 113.2, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/233-auction/899378-glenlivet-16-year-old-nadurra/", "Median of recent hammer prices £60; Priced as the original 16yo Nàdurra"],
+  ["Berry Bros & Rudd Perspective Series No. 1, 21 yr", "Ross", 94.34, "UK auction hammer (GBP converted)", "Scotch Whisky Auctions", "https://www.scotchwhiskyauctions.com/auctions/222-auction/844890-the-perspective-series-21-year-old-sandwood-bay-berry-bros--rudd/", "Median of recent hammer prices £50; Sandwood Bay 21yo"]
+];
+
 /* ---------- Helpers ---------- */
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const safeUrl = (u) => (/^https?:\/\/\S+$/i.test(u || "") ? u : "");
+const money = (n) => (typeof n === "number" ? n.toLocaleString("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }) : "");
 const safeThumb = (u) => (/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(u || "") ? u : "");
 const colorOf = (r) => REGIONS[r] || REGIONS.Other;
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -570,12 +666,17 @@ function countBy(list, fn) {
   for (const x of list) { const k = fn(x); m.set(k, (m.get(k) || 0) + 1); }
   return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 }
-function rows(el, entries, colorFn) {
+function rows(el, entries, colorFn, fmt = (n) => n) {
   const max = Math.max(1, ...entries.map((e) => e[1]));
   el.innerHTML = entries.length ? entries.map(([label, n]) => `
-    <div class="row"><span>${esc(label)}</span><span class="v">${n}</span>
+    <div class="row"><span>${esc(label)}</span><span class="v">${esc(fmt(n))}</span>
       <span class="track" aria-hidden="true"><span class="fill" style="width:${(n / max) * 100}%;${colorFn ? "background:" + colorFn(label) : ""}"></span></span></div>`).join("")
     : `<p class="quiet">Nothing matches the current filters.</p>`;
+}
+function sumBy(list, fn) {
+  const m = new Map();
+  for (const x of list) if (typeof x.price === "number") { const k = fn(x); m.set(k, (m.get(k) || 0) + x.price); }
+  return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 }
 function renderTally(list) {
   const nd = new Set(list.map((b) => b.distilleryId)).size;
@@ -583,8 +684,16 @@ function renderTally(list) {
   const nc = new Set(list.map((b) => distOf(b).country).filter(Boolean)).size;
   const filteredNote = list.length !== bottles.length ? " in this view" : "";
   $("#tally").innerHTML = list.length
-    ? `${plural(list.length, "bottle", "bottles")} from ${plural(nd, "distillery", "distilleries")}, across ${plural(nr, "region", "regions")} and ${plural(nc, "country", "countries")}${filteredNote}.`
+    ? `${plural(list.length, "bottle", "bottles")} from ${plural(nd, "distillery", "distilleries")}, across ${plural(nr, "region", "regions")} and ${plural(nc, "country", "countries")}${filteredNote}.${valueLine(list)}`
     : "No bottles in this view yet.";
+}
+function valueLine(list) {
+  const priced = list.filter((b) => typeof b.price === "number");
+  if (!priced.length) return "";
+  const total = `<b>${esc(money(priced.reduce((t, b) => t + b.price, 0)))}</b>`;
+  return priced.length === list.length
+    ? ` Worth about ${total} at today's prices.`
+    : ` The ${priced.length} with prices are worth about ${total} today.`;
 }
 function renderLegend() {
   const used = new Set(bottles.map((b) => distOf(b).region));
@@ -612,7 +721,7 @@ function filtered() {
     const d = distOf(b);
     if (filters.host && b.host !== filters.host) return false;
     if (filters.region && d.region !== filters.region) return false;
-    if (q && !`${b.whisky} ${d.name} ${b.host} ${d.region}`.toLowerCase().includes(q)) return false;
+    if (q && !`${b.whisky} ${d.name} ${b.host} ${d.region} ${b.pairing || ""}`.toLowerCase().includes(q)) return false;
     return true;
   });
 }
@@ -622,6 +731,7 @@ function sorted(list) {
   if (s === "name") l.sort((a, b) => a.whisky.localeCompare(b.whisky));
   else if (s === "dist") l.sort((a, b) => distOf(a).name.localeCompare(distOf(b).name) || a.whisky.localeCompare(b.whisky));
   else if (s === "host") l.sort((a, b) => a.host.localeCompare(b.host) || a.whisky.localeCompare(b.whisky));
+  else if (s === "price") l.sort((a, b) => (typeof b.price === "number" ? b.price : -1) - (typeof a.price === "number" ? a.price : -1) || a.whisky.localeCompare(b.whisky));
   else if (s === "region") l.sort((a, b) => distOf(a).region.localeCompare(distOf(b).region) || a.whisky.localeCompare(b.whisky));
   else l.sort((a, b) => {
     if (a.date && b.date) return b.date.localeCompare(a.date);
@@ -647,10 +757,11 @@ function renderList(list) {
       : monogram(b, d);
     return `<li class="entry" tabindex="0" data-id="${esc(b.id)}" aria-label="${esc(b.whisky)}, brought by ${esc(b.host)}. Open to edit.">
       <span class="thumbcell">${thumb}</span>
-      <span class="bottle"><span class="n">${esc(b.whisky)}</span><span class="d">${esc(d.name)}</span></span>
-      <span class="rg"><span class="sw" style="background:${colorOf(d.region)}"></span>${esc(d.region)}</span>
+      <span class="bottle"><span class="n">${esc(b.whisky)}</span><span class="d"><span class="sw" style="background:${colorOf(d.region)}"></span>${esc(d.name)}, ${esc(d.region)}</span></span>
+      <span class="pairing">${esc(b.pairing || "")}</span>
       <span class="who">${esc(b.host)}</span>
-      <span class="when">${b.date ? esc(fmtDate(b.date)) : "Undated"}</span></li>`;
+      <span class="when">${b.date ? esc(fmtDate(b.date)) : "Undated"}</span>
+      <span class="price">${esc(money(b.price))}</span></li>`;
   }).join("");
   $("#rows").querySelectorAll("img.thumb").forEach((img) => {
     img.addEventListener("error", () => { img.outerHTML = img.dataset.mono; }, { once: true });
@@ -674,6 +785,7 @@ function renderAll() {
   renderMap(list);
   renderLegend();
   rows($("#byHost"), countBy(list, (b) => b.host));
+  rows($("#byValue"), sumBy(list, (b) => b.host), null, money);
   rows($("#byRegion"), countBy(list, (b) => distOf(b).region), colorOf);
   renderLatest();
   renderList(list);
@@ -690,10 +802,11 @@ $("#sort").addEventListener("change", (e) => { filters.sort = e.target.value; re
 /* ---------- CSV export ---------- */
 $("#csvBtn").addEventListener("click", () => {
   const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const lines = [["Bottle", "Distillery", "Region", "Country", "Brought by", "Date tasted", "Image"].map(cell).join(",")];
+  const lines = [["Bottle", "Distillery", "Region", "Country", "Brought by", "Date tasted", "Dinner pairing", "Image", "Price (CAD)", "Price basis", "Price source", "Price URL", "Price note"].map(cell).join(",")];
   for (const b of sorted(filtered())) {
     const d = distOf(b);
-    lines.push([b.whisky, d.name, d.region, d.country, b.host, b.date, b.image].map(cell).join(","));
+    lines.push([b.whisky, d.name, d.region, d.country, b.host, b.date, b.pairing, b.image,
+      typeof b.price === "number" ? b.price.toFixed(2) : "", b.priceBasis, b.priceSource, b.priceUrl, b.priceNote].map(cell).join(","));
   }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
@@ -828,6 +941,8 @@ function openForm(b) {
   $("#iWhisky").value = b ? b.whisky : "";
   $("#iDate").value = b ? (b.date || "") : todayStr();
   $("#iImage").value = b ? (b.image || "") : "";
+  $("#iPairing").value = b ? (b.pairing || "") : "";
+  $("#iPrice").value = b && typeof b.price === "number" ? b.price.toFixed(2) : "";
   fillDistSelect(b ? b.distilleryId : "");
   $("#nName").value = ""; $("#nSearch").value = ""; $("#nCountry").value = "Scotland"; $("#nRegion").value = "Speyside";
   pickLatLng = null; if (pickMarker) { pickMarker.remove(); pickMarker = null; }
@@ -847,10 +962,14 @@ $("#form").addEventListener("submit", async (e) => {
   const host = $("#iHost").value;
   const date = $("#iDate").value || "";
   const image = $("#iImage").value.trim();
+  const pairing = $("#iPairing").value.trim();
+  const priceRaw = $("#iPrice").value.trim();
+  const price = priceRaw === "" ? null : Math.round(Number(priceRaw) * 100) / 100;
   let distilleryId = $("#iDist").value;
   if (!whisky) return err("Enter the bottle's name.");
   if (!distilleryId) return err("Choose a distillery, or pick “New distillery” to add one.");
   if (image && !safeUrl(image)) return err("Photo links need to start with http:// or https://");
+  if (price !== null && !(price >= 0 && price <= 100000)) return err("Enter the price as a number, like 89.99, or leave it blank.");
 
   $("#saveBtn").disabled = true;
   try {
@@ -867,7 +986,13 @@ $("#form").addEventListener("submit", async (e) => {
       }
       distilleryId = id;
     }
-    const data = { host, whisky, distilleryId, date, image, updatedAt: serverTimestamp() };
+    const data = { host, whisky, distilleryId, date, image, pairing, updatedAt: serverTimestamp() };
+    const before = editingId ? bottles.find((x) => x.id === editingId) : null;
+    const oldPrice = before && typeof before.price === "number" ? before.price : null;
+    if (price !== oldPrice) {
+      // A price typed into the form replaces the researched source details.
+      Object.assign(data, { price, priceBasis: price === null ? "" : "Entered by the club", priceSource: "", priceUrl: "", priceNote: "" });
+    }
     const ref = editingId ? doc(db, "bottles", editingId) : doc(collection(db, "bottles"));
     const photoRef = doc(db, "photos", ref.id);
     if (photo.mode === "new") data.thumb = photo.thumb;
@@ -914,7 +1039,39 @@ onSnapshot(collection(db, "distilleries"), (snap) => {
 onSnapshot(collection(db, "bottles"), (snap) => {
   bottles = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   loaded.b = true; setStatus("live", "Live, updates automatically"); renderAll();
+  importPrices();
 }, onErr);
+
+/* ---------- One-time price import ---------- */
+let priceImport = "idle";
+async function importPrices() {
+  if (priceImport !== "idle" || !bottles.length) return;
+  priceImport = "running";
+  try {
+    const metaRef = doc(db, "meta", "prices-2026-10");
+    if ((await getDoc(metaRef)).exists()) { priceImport = "done"; return; }
+    const norm = (s) => String(s || "").normalize("NFKC").replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, " ").trim().toLowerCase();
+    const byKey = new Map(bottles.map((b) => [norm(b.whisky) + "|" + b.host, b]));
+    const batch = writeBatch(db);
+    const missed = [];
+    let n = 0;
+    for (const [whisky, host, price, priceBasis, priceSource, priceUrl, priceNote] of PRICE_IMPORT) {
+      const b = byKey.get(norm(whisky) + "|" + host);
+      if (!b) { missed.push(`${whisky} (${host})`); continue; }
+      if (typeof b.price === "number") continue;
+      batch.update(doc(db, "bottles", b.id), { price, priceBasis, priceSource, priceUrl, priceNote });
+      n++;
+    }
+    batch.set(metaRef, { at: serverTimestamp(), updated: n, missed });
+    await batch.commit();
+    priceImport = "done";
+    if (n) toast(`Prices added to ${n} bottles`);
+    if (missed.length) console.warn("Prices not matched to a bottle:", missed);
+  } catch (ex) {
+    console.error("Price import failed", ex);
+    priceImport = "failed";
+  }
+}
 
 ensureSeed().catch((ex) => { console.error(ex); if (ex.code === "permission-denied") onErr(ex); });
 </script>
